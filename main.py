@@ -34,6 +34,7 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--model', type=str, default='attention', help='Choose b/w attention and gated_attention')
+parser.add_argument("--port", default=52720)
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
