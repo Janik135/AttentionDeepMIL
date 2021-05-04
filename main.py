@@ -9,6 +9,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 
 from dataloader import MnistBags
+from grape_dataloader import VineBags
 from model import Attention, GatedAttention
 
 # Training settings
@@ -47,22 +48,12 @@ if args.cuda:
 print('Load Train and Test Set')
 loader_kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 
-train_loader = data_utils.DataLoader(MnistBags(target_number=args.target_number,
-                                               mean_bag_length=args.mean_bag_length,
-                                               var_bag_length=args.var_bag_length,
-                                               num_bag=args.num_bags_train,
-                                               seed=args.seed,
-                                               train=True),
+train_loader = data_utils.DataLoader(VineBags(train=True),
                                      batch_size=1,
                                      shuffle=True,
                                      **loader_kwargs)
 
-test_loader = data_utils.DataLoader(MnistBags(target_number=args.target_number,
-                                              mean_bag_length=args.mean_bag_length,
-                                              var_bag_length=args.var_bag_length,
-                                              num_bag=args.num_bags_test,
-                                              seed=args.seed,
-                                              train=False),
+test_loader = data_utils.DataLoader(VineBags(train=False),
                                     batch_size=1,
                                     shuffle=False,
                                     **loader_kwargs)
