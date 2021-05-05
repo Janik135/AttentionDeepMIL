@@ -57,7 +57,8 @@ class RandomCrop(object):
             is made.
     """
 
-    def __init__(self, output_size):
+    def __init__(self, output_size, random_state):
+        self.r = random_state
         assert isinstance(output_size, (int, tuple))
         if isinstance(output_size, int):
             self.output_size = (output_size, output_size)
@@ -71,8 +72,8 @@ class RandomCrop(object):
         h, w = image.shape[:2]
         new_h, new_w = self.output_size
 
-        top = np.random.randint(0, h - new_h)
-        left = np.random.randint(0, w - new_w)
+        top = self.r.randint(0, h - new_h)
+        left = self.r.randint(0, w - new_w)
 
         image = image[top: top + new_h, left: left + new_w]
 
@@ -122,29 +123,32 @@ class ToRGB(object):
         return {'image': image, 'annotation': sample['annotation'].copy()}
 
 
-class ToBag(object):
+class ToBatches(object):
     """Convert images to bags"""
 
-    def __init__(self, output_size):
+    def __init__(self, output_size, threshold):
         self.output_size = output_size
+        self.threshold = threshold
 
     def __call__(self, sample):
         image, mask, control = sample['image'], sample['annotation']['mask'], sample['annotation']['control']
 
         row_pixels, column_pixels = self.output_size
+        threshold = int(row_pixels * column_pixels * self.threshold)
 
-        images, image_index_labels = [], []
+        image_batches, batch_labels = [], []
 
         for r in range(0, image.shape[0], row_pixels):
             for c in range(0, image.shape[1], column_pixels):
                 label = int(np.sum(mask[r:r+row_pixels, c:c+column_pixels]) >= 1 and control is False)
-                image_index_labels.append(label)
-                images.append((image[r:r+row_pixels, c:c+column_pixels, :]))
+                if np.sum(mask[r:r+row_pixels, c:c+column_pixels]) >= threshold:
+                    batch_labels.append(label)
+                    image_batches.append((image[r:r+row_pixels, c:c+column_pixels, :]))
 
-        return {'images': images, 'labels': image_index_labels}
+        return {'images': image_batches, 'labels': batch_labels}
 
 
-class BagToTensors(object):
+class BatchesToTensors(object):
     """Convert every entry in bag to tensor"""
 
     def __call__(self, sample):
@@ -159,8 +163,41 @@ class BagToTensors(object):
         for label in labels:
             label_tensors.append((torch.tensor(label)))
 
-        im_shape = images[0].shape
-        im_out_dim = torch.Tensor(len(images), im_shape[0], im_shape[1], im_shape[2])
-
         return {'images': torch.stack(image_tensors),
                 'labels': torch.stack(label_tensors)}
+
+
+class RescaleBatches(object):
+    """Rescale the image batches in a sample to a given size.
+
+    Args:
+        output_size (tuple or int): Desired output size. If tuple, output is
+            matched to output_size. If int, smaller of image edges is matched
+            to output_size keeping aspect ratio the same.
+    """
+
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        self.output_size = output_size
+
+    def __call__(self, sample):
+        images, labels = sample['images'], sample["labels"]
+
+        resized_images = []
+        for image in images:
+
+            h, w = image.shape[:2]
+            if isinstance(self.output_size, int):
+                if h > w:
+                    new_h, new_w = self.output_size * h / w, self.output_size
+                else:
+                    new_h, new_w = self.output_size, self.output_size * w / h
+            else:
+                new_h, new_w = self.output_size
+
+            new_h, new_w = int(new_h), int(new_w)
+
+            img = transform.resize(image, (new_h, new_w))
+            resized_images.append(img)
+
+        return {'images': resized_images, 'labels': labels}

@@ -9,14 +9,15 @@ from data import GrapeVineDataset
 
 
 class VineBags(data_utils.Dataset):
-    def __init__(self, train=True):
+    def __init__(self, train=True, seed=1):
         self.train = train
+        self.r = np.random.RandomState(seed)
         self.train_split = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11]
         self.test_split = [3, 4, 12, 13, 14]
-        self.transforms = transforms.Compose([RandomCrop((416, 369)),
+        self.transforms = transforms.Compose([RandomCrop((416, 369), self.r),
                                               ToRGB(),
-                                              ToBag((52, 41)),
-                                              BagToTensors()])
+                                              ToBatches((52, 41), 0.5),
+                                              BatchesToTensors()])
 
         if self.train:
             self.train_bags_list, self.train_labels_list = self._create_bags()
