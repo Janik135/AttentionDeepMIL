@@ -69,6 +69,14 @@ class Attention(nn.Module):
 
         return neg_log_likelihood, A
 
+    def calculate_nll(self, X, Y):
+        Y_prob, _, A = self.forward(X)
+        Y_prob = torch.clamp(Y_prob, min=1e-5, max=1. - 1e-5)
+        loss = nn.NLLLoss()
+        neg_log_likelihood = loss(torch.log(Y_prob), Y)
+
+        return neg_log_likelihood, A
+
 class GatedAttention(nn.Module):
     def __init__(self):
         super(GatedAttention, self).__init__()

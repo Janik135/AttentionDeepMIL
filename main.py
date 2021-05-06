@@ -50,7 +50,7 @@ loader_kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 
 train_loader = data_utils.DataLoader(VineBags(train=True),
                                      batch_size=1,
-                                     shuffle=True,
+                                     shuffle=False,
                                      **loader_kwargs)
 
 test_loader = data_utils.DataLoader(VineBags(train=False),
@@ -82,8 +82,11 @@ def train(epoch):
         # reset gradients
         optimizer.zero_grad()
         # calculate loss and metrics
-        loss, _ = model.calculate_objective(data, bag_label)
-        train_loss += loss.data[0]
+        if batch_idx==3:
+            print(batch_idx)
+        loss, _ = model.calculate_nll(data, bag_label)
+        #train_loss += loss.data[0]
+        train_loss += loss.data
         error, _ = model.calculate_classification_error(data, bag_label)
         train_error += error
         # backward pass
