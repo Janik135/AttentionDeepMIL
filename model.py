@@ -20,7 +20,7 @@ class Attention(nn.Module):
         )
 
         self.feature_extractor_part2 = nn.Sequential(
-            nn.Linear(50 * 10 * 7, self.L),
+            nn.Linear(50 * 11 * 11, self.L),
             nn.ReLU(),
         )
 
@@ -31,7 +31,7 @@ class Attention(nn.Module):
         )
 
         self.classifier = nn.Sequential(
-            nn.Linear(self.L*self.K, 1),
+            nn.Linear(self.L*self.K, 2),
             nn.Sigmoid()
         )
 
@@ -39,7 +39,7 @@ class Attention(nn.Module):
         x = x.squeeze(0)
 
         H = self.feature_extractor_part1(x)
-        H = H.view(-1, 50 * 10 * 7)
+        H = H.view(-1, 50 * 11 * 11)
         H = self.feature_extractor_part2(H)  # NxL
 
         A = self.attention(H)  # NxK
@@ -49,6 +49,7 @@ class Attention(nn.Module):
         M = torch.mm(A, H)  # KxL
 
         Y_prob = self.classifier(M)
+        # Y_hat = torch.argmax(Y_prob).float()
         Y_hat = torch.ge(Y_prob, 0.5).float()
 
         return Y_prob, Y_hat, A
@@ -57,6 +58,7 @@ class Attention(nn.Module):
     def calculate_classification_error(self, X, Y):
         Y = Y.float()
         _, Y_hat, _ = self.forward(X)
+        # print(Y, Y_hat)
         error = 1. - Y_hat.eq(Y).cpu().float().mean().data.item()
 
         return error, Y_hat
@@ -72,6 +74,7 @@ class Attention(nn.Module):
     def calculate_nll(self, X, Y):
         Y_prob, _, A = self.forward(X)
         Y_prob = torch.clamp(Y_prob, min=1e-5, max=1. - 1e-5)
+        # weight = torch.Tensor([0.9999, 0.0001])
         loss = nn.NLLLoss()
         neg_log_likelihood = loss(torch.log(Y_prob), Y)
 

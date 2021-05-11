@@ -14,9 +14,10 @@ class VineBags(data_utils.Dataset):
         self.r = np.random.RandomState(seed)
         self.train_split = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11]
         self.test_split = [3, 4, 12, 13, 14]
-        self.transforms = transforms.Compose([RandomCrop((416, 369), self.r),
-                                              ToRGB(),
-                                              ToBatches((52, 41), 0.5),
+        self.transforms = transforms.Compose([ToRGB(),
+                                              # ToBatches((52, 41), 0.5),
+                                              ToDynamicBatches(10, 0.5),
+                                              RescaleBatches((56, 56)),
                                               BatchesToTensors()])
 
         if self.train:

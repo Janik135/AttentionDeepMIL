@@ -148,6 +148,32 @@ class ToBatches(object):
         return {'images': image_batches, 'labels': batch_labels}
 
 
+class ToDynamicBatches(object):
+    """Convert images to bags"""
+
+    def __init__(self, amount_tiles, threshold):
+        self.amount_tiles = amount_tiles
+        self.threshold = threshold
+
+    def __call__(self, sample):
+        image, mask, control = sample['image'], sample['annotation']['mask'], sample['annotation']['control']
+
+        row_pixels = int(image.shape[0] / self.amount_tiles)
+        column_pixels = int(image.shape[1] / self.amount_tiles)
+        threshold = int(row_pixels * column_pixels * self.threshold)
+
+        image_batches, batch_labels = [], []
+
+        for r in range(0, image.shape[0], row_pixels):
+            for c in range(0, image.shape[1], column_pixels):
+                label = int(np.sum(mask[r:r+row_pixels, c:c+column_pixels]) >= 1 and control is False)
+                if np.sum(mask[r:r+row_pixels, c:c+column_pixels]) >= threshold:
+                    batch_labels.append(label)
+                    image_batches.append((image[r:r+row_pixels, c:c+column_pixels, :]))
+
+        return {'images': image_batches, 'labels': batch_labels}
+
+
 class BatchesToTensors(object):
     """Convert every entry in bag to tensor"""
 
