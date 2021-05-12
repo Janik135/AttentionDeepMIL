@@ -7,8 +7,7 @@ import torch
 import torch.utils.data as data_utils
 import torch.optim as optim
 from torch.autograd import Variable
-
-from dataloader import MnistBags
+from torch.utils.tensorboard import SummaryWriter
 from grape_dataloader import VineBags
 from model import Attention, GatedAttention
 
@@ -67,6 +66,7 @@ if args.cuda:
     model.cuda()
 
 optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=args.reg)
+writer = SummaryWriter()
 
 
 def train(epoch):
@@ -83,6 +83,7 @@ def train(epoch):
         optimizer.zero_grad()
         # calculate loss and metrics
         loss, _ = model.calculate_nll(data, bag_label)
+        writer.add_scalar("Loss/train", loss, epoch)
         # train_loss += loss.data[0]
         train_loss += loss.data
         error, _ = model.calculate_classification_error(data, bag_label)
@@ -116,7 +117,7 @@ def test():
         test_error += error
 
         if batch_idx < 5:  # plot bag labels and instance labels for first 5 bags
-            bag_level = (bag_label.cpu().data.numpy()[0], int(predicted_label.cpu().data.numpy()[0][0]))
+            bag_level = (bag_label.cpu().data.numpy()[0], int(predicted_label.cpu().data.numpy()))
             instance_level = list(zip(instance_labels.numpy()[0].tolist(),
                                       np.round(attention_weights.cpu().data.numpy()[0], decimals=3).tolist()))
 
@@ -135,3 +136,5 @@ if __name__ == "__main__":
         train(epoch)
     print('Start Testing')
     test()
+    writer.flush()
+    writer.close()
