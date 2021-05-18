@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from skimage import transform
+from skimage import transform, util
 from spectral import get_rgb
 
 
@@ -123,6 +123,105 @@ class ToRGB(object):
         return {'image': image, 'annotation': sample['annotation'].copy()}
 
 
+class Rotate(object):
+    """Rotate and wrap image and mask"""
+
+    def __call__(self, sample):
+        image, annotation = sample['image'], sample['annotation']['mask']
+
+        rotated_image = transform.rotate(image, angle=45, mode="wrap")
+        rotated_mask = transform.rotate(annotation, angle=45, mode="wrap")
+        return {'image': rotated_image, 'annotation': {'mask': rotated_mask, 'control': sample['annotation']['control'],
+                                                       'dat_path': sample['annotation']['dat_path'],
+                                                       'wine_type': sample['annotation']['wine_type'],
+                                                       'img_num': sample['annotation']['img_num'],
+                                                       'date_id': sample['annotation']['date_id'],
+                                                       'plantid': sample['annotation']['plantid'],
+                                                       'mm_shape': sample['annotation']['mm_shape'],
+                                                       'img_min': sample['annotation']['img_min'],
+                                                       'img_max': sample['annotation']['img_max']}}
+
+
+class Shift(object):
+    """Shift and wrap image and mask"""
+
+    def __call__(self, sample):
+        image, annotation = sample['image'], sample['annotation']['mask']
+
+        trnsfrm = transform.AffineTransform(translation=(25, 25))
+        shifted_image = transform.warp(image, trnsfrm, mode="wrap")
+        shifted_mask = transform.warp(image, trnsfrm, mode="wrap")
+        return {'image': shifted_image, 'annotation': {'mask': shifted_mask, 'control': sample['annotation']['control'],
+                                                       'dat_path': sample['annotation']['dat_path'],
+                                                       'wine_type': sample['annotation']['wine_type'],
+                                                       'img_num': sample['annotation']['img_num'],
+                                                       'date_id': sample['annotation']['date_id'],
+                                                       'plantid': sample['annotation']['plantid'],
+                                                       'mm_shape': sample['annotation']['mm_shape'],
+                                                       'img_min': sample['annotation']['img_min'],
+                                                       'img_max': sample['annotation']['img_max']}}
+
+
+class FlipLeftRight(object):
+    """Flip image and mask left to right"""
+
+    def __call__(self, sample):
+        image, annotation = sample['image'], sample['annotation']['mask']
+
+        flipped_image = np.fliplr(image)
+        flipped_mask = np.fliplr(annotation)
+        return {'image': flipped_image, 'annotation': {'mask': flipped_mask, 'control': sample['annotation']['control'],
+                                                       'dat_path': sample['annotation']['dat_path'],
+                                                       'wine_type': sample['annotation']['wine_type'],
+                                                       'img_num': sample['annotation']['img_num'],
+                                                       'date_id': sample['annotation']['date_id'],
+                                                       'plantid': sample['annotation']['plantid'],
+                                                       'mm_shape': sample['annotation']['mm_shape'],
+                                                       'img_min': sample['annotation']['img_min'],
+                                                       'img_max': sample['annotation']['img_max']}}
+
+
+class FlipUpDown(object):
+    """Flip image and mask up to down"""
+
+    def __call__(self, sample):
+        image, annotation = sample['image'], sample['annotation']['mask']
+
+        flipped_image = np.flipud(image)
+        flipped_mask = np.flipud(annotation)
+        return {'image': flipped_image, 'annotation': {'mask': flipped_mask, 'control': sample['annotation']['control'],
+                                                       'dat_path': sample['annotation']['dat_path'],
+                                                       'wine_type': sample['annotation']['wine_type'],
+                                                       'img_num': sample['annotation']['img_num'],
+                                                       'date_id': sample['annotation']['date_id'],
+                                                       'plantid': sample['annotation']['plantid'],
+                                                       'mm_shape': sample['annotation']['mm_shape'],
+                                                       'img_min': sample['annotation']['img_min'],
+                                                       'img_max': sample['annotation']['img_max']}}
+
+
+class AddRandomNoise(object):
+    """Flip image and mask up to down"""
+
+    def __call__(self, sample):
+        image, annotation = sample['image'], sample['annotation']['mask']
+
+        sigma = 0.155
+        noisy_image = util.random_noise(image, var=sigma**2, seed=1)
+        noisy_mask = util.random_noise(annotation, var=sigma**2, seed=1)
+
+        return {'image': noisy_image, 'annotation': {'mask': noisy_mask, 'control': sample['annotation']['control'],
+                                                       'dat_path': sample['annotation']['dat_path'],
+                                                       'wine_type': sample['annotation']['wine_type'],
+                                                       'img_num': sample['annotation']['img_num'],
+                                                       'date_id': sample['annotation']['date_id'],
+                                                       'plantid': sample['annotation']['plantid'],
+                                                       'mm_shape': sample['annotation']['mm_shape'],
+                                                       'img_min': sample['annotation']['img_min'],
+                                                       'img_max': sample['annotation']['img_max']}}
+
+
+
 class ToBatches(object):
     """Convert images to bags"""
 
@@ -183,7 +282,7 @@ class BatchesToTensors(object):
         image_tensors = []
         for image in images:
             img = image.transpose((2, 0, 1))
-            image_tensors.append(torch.from_numpy(img).to(torch.float32))
+            image_tensors.append(torch.from_numpy(img.copy()).to(torch.float32))
 
         label_tensors = []
         for label in labels:
