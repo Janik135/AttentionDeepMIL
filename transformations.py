@@ -3,6 +3,7 @@ import torch
 
 from skimage import transform, util
 from spectral import get_rgb
+from torchvision import transforms
 
 
 class Rescale(object):
@@ -123,14 +124,45 @@ class ToRGB(object):
         return {'image': image, 'annotation': sample['annotation'].copy()}
 
 
+class CentralCrop(object):
+    """Converts image to tensor, to PIL image, does central crop and returns numpy array"""
+
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
+        else:
+            assert len(output_size) == 2
+            self.output_size = output_size
+
+    def __call__(self, sample):
+        image, annotation = sample['image'], sample['annotation']['mask']
+
+        transformations = transforms.Compose([transforms.ToTensor(), transforms.ToPILImage(),
+                                              transforms.CenterCrop(self.output_size)])
+        image = transformations(image)
+        annotation = transformations(annotation)
+
+        return {'image': np.array(image), 'annotation': {'mask': np.array(annotation),
+                                                         'control': sample['annotation']['control'],
+                                                         'dat_path': sample['annotation']['dat_path'],
+                                                         'wine_type': sample['annotation']['wine_type'],
+                                                         'img_num': sample['annotation']['img_num'],
+                                                         'date_id': sample['annotation']['date_id'],
+                                                         'plantid': sample['annotation']['plantid'],
+                                                         'mm_shape': sample['annotation']['mm_shape'],
+                                                         'img_min': sample['annotation']['img_min'],
+                                                         'img_max': sample['annotation']['img_max']}}
+
+
 class Rotate(object):
     """Rotate and wrap image and mask"""
 
     def __call__(self, sample):
         image, annotation = sample['image'], sample['annotation']['mask']
 
-        rotated_image = transform.rotate(image, angle=45, mode="wrap")
-        rotated_mask = transform.rotate(annotation, angle=45, mode="wrap")
+        rotated_image = transform.rotate(image, angle=45, mode="symmetric")
+        rotated_mask = transform.rotate(annotation, angle=45, mode="symmetric")
         return {'image': rotated_image, 'annotation': {'mask': rotated_mask, 'control': sample['annotation']['control'],
                                                        'dat_path': sample['annotation']['dat_path'],
                                                        'wine_type': sample['annotation']['wine_type'],
@@ -211,15 +243,14 @@ class AddRandomNoise(object):
         noisy_mask = util.random_noise(annotation, var=sigma**2, seed=1)
 
         return {'image': noisy_image, 'annotation': {'mask': noisy_mask, 'control': sample['annotation']['control'],
-                                                       'dat_path': sample['annotation']['dat_path'],
-                                                       'wine_type': sample['annotation']['wine_type'],
-                                                       'img_num': sample['annotation']['img_num'],
-                                                       'date_id': sample['annotation']['date_id'],
-                                                       'plantid': sample['annotation']['plantid'],
-                                                       'mm_shape': sample['annotation']['mm_shape'],
-                                                       'img_min': sample['annotation']['img_min'],
-                                                       'img_max': sample['annotation']['img_max']}}
-
+                                                     'dat_path': sample['annotation']['dat_path'],
+                                                     'wine_type': sample['annotation']['wine_type'],
+                                                     'img_num': sample['annotation']['img_num'],
+                                                     'date_id': sample['annotation']['date_id'],
+                                                     'plantid': sample['annotation']['plantid'],
+                                                     'mm_shape': sample['annotation']['mm_shape'],
+                                                     'img_min': sample['annotation']['img_min'],
+                                                     'img_max': sample['annotation']['img_max']}}
 
 
 class ToBatches(object):
@@ -326,3 +357,28 @@ class RescaleBatches(object):
             resized_images.append(img)
 
         return {'images': resized_images, 'labels': labels}
+
+class AugmentBatches(object):
+    """Augment batches
+    """
+
+    def __init__(self, s=1.0):
+        self.s = s
+
+    def __call__(self, sample):
+        images, labels = sample['images'], sample["labels"]
+
+        color_jitter = transforms.ColorJitter(0.9*self.s, 0.9*self.s, 0.9*self.s, 0.1*self.s)
+        rnd_color_jitter = transforms.RandomApply([color_jitter], p=0.8)
+        transformation = transforms.Compose([transforms.ToPILImage(),
+                                             rnd_color_jitter,
+                                             transforms.RandomRotation(degrees=15, fill=(128, 128, 128)),
+                                             transforms.RandomHorizontalFlip(),
+                                             transforms.RandomVerticalFlip(),
+                                             transforms.ToTensor()])
+        augmented_batches = []
+        for image in images:
+            img = transformation(image)
+            augmented_batches.append(img)
+
+        return {'images': augmented_batches, 'labels': labels}

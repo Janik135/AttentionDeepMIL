@@ -14,12 +14,9 @@ class VineBags(data_utils.Dataset):
         self.r = np.random.RandomState(seed)
         self.train_split = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11]
         self.test_split = [3, 4, 12, 13, 14]
-        self.transforms = transforms.Compose([RandomCrop((416, 369), self.r),
-                                              ToRGB()])
-                                              # ToBatches((52, 41), 0.5),
-                                              # ToDynamicBatches(10, 0.5),
-                                              # RescaleBatches((56, 56)),
-                                              # BatchesToTensors()])
+        self.transformations = [ToRGB(), CentralCrop((416, 369)), ToBatches((52, 41), 0), AugmentBatches()]
+        self.annotation_dir = '/Users/janik/Downloads/UVVorversuch_cropped/cropped_annotation'
+        self.image_dir = '/Users/janik/Downloads/UVVorversuch_cropped/cropped_norm'
 
         if self.train:
             self.train_bags_list, self.train_labels_list = self._create_bags()
@@ -65,144 +62,18 @@ class VineBags(data_utils.Dataset):
         return bag, label
 
     def _create_train_dataset(self):
-        original_train = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                         'UVVorversuch_cropped/cropped_annotation',
-                                          image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                    'cropped_norm',
+        train_dataset = GrapeVineDataset(annotation_dir=self.annotation_dir,
+                                          image_dir=self.image_dir,
                                           split=self.train_split,
-                                          transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                        ToRGB(),
-                                                                        ToBatches((52, 41), 0),
-                                                                        BatchesToTensors()]))
-
-        rotated_train = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                        'UVVorversuch_cropped/cropped_annotation',
-                                         image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                   'cropped_norm',
-                                         split=self.train_split,
-                                         transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                       ToRGB(),
-                                                                       Rotate(),
-                                                                       ToBatches((52, 41), 0),
-                                                                       BatchesToTensors()]))
-
-        shifted_train = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                        'UVVorversuch_cropped/cropped_annotation',
-                                         image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                   'cropped_norm',
-                                         split=self.train_split,
-                                         transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                       ToRGB(),
-                                                                       Shift(),
-                                                                       ToBatches((52, 41), 0),
-                                                                       BatchesToTensors()]))
-
-        flipped_lr_train = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                           'UVVorversuch_cropped/cropped_annotation',
-                                            image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                      'cropped_norm',
-                                            split=self.train_split,
-                                            transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                          ToRGB(),
-                                                                          FlipLeftRight(),
-                                                                          ToBatches((52, 41), 0),
-                                                                          BatchesToTensors()]))
-
-        flipped_ud_train = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                           'UVVorversuch_cropped/cropped_annotation',
-                                            image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                      'cropped_norm',
-                                            split=self.train_split,
-                                            transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                          ToRGB(),
-                                                                          FlipUpDown(),
-                                                                          ToBatches((52, 41), 0),
-                                                                          BatchesToTensors()]))
-
-        noisy_train = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                      'UVVorversuch_cropped/cropped_annotation',
-                                       image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                 'cropped_norm',
-                                       split=self.train_split,
-                                       transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                     ToRGB(),
-                                                                     AddRandomNoise(),
-                                                                     ToBatches((52, 41), 0),
-                                                                     BatchesToTensors()]))
-
-        train_dataset = torch.utils.data.ConcatDataset([original_train, rotated_train, shifted_train, flipped_lr_train,
-                                                        flipped_ud_train, noisy_train])
+                                          transform=transforms.Compose(self.transformations))
 
         return train_dataset
 
     def _create_test_dataset(self):
-        original_test = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                        'UVVorversuch_cropped/cropped_annotation',
-                                         image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                   'cropped_norm',
+        test_dataset = GrapeVineDataset(annotation_dir=self.annotation_dir,
+                                         image_dir=self.image_dir,
                                          split=self.test_split,
-                                         transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                       ToRGB(),
-                                                                       ToBatches((52, 41), 0),
-                                                                       BatchesToTensors()]))
-
-        rotated_test = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                       'UVVorversuch_cropped/cropped_annotation',
-                                        image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                  'cropped_norm',
-                                        split=self.test_split,
-                                        transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                      ToRGB(),
-                                                                      Rotate(),
-                                                                      ToBatches((52, 41), 0),
-                                                                      BatchesToTensors()]))
-
-        shifted_test = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                       'UVVorversuch_cropped/cropped_annotation',
-                                        image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                  'cropped_norm',
-                                        split=self.test_split,
-                                        transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                      ToRGB(),
-                                                                      Shift(),
-                                                                      ToBatches((52, 41), 0),
-                                                                      BatchesToTensors()]))
-
-        flipped_lr_test = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                          'UVVorversuch_cropped/cropped_annotation',
-                                           image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                     'cropped_norm',
-                                           split=self.test_split,
-                                           transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                         ToRGB(),
-                                                                         FlipLeftRight(),
-                                                                         ToBatches((52, 41), 0),
-                                                                         BatchesToTensors()]))
-
-        flipped_ud_test = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                          'UVVorversuch_cropped/cropped_annotation',
-                                           image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                     'cropped_norm',
-                                           split=self.test_split,
-                                           transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                         ToRGB(),
-                                                                         FlipUpDown(),
-                                                                         ToBatches((52, 41), 0),
-                                                                         BatchesToTensors()]))
-
-        noisy_test = GrapeVineDataset(annotation_dir='/Users/janik/Downloads/'
-                                                     'UVVorversuch_cropped/cropped_annotation',
-                                      image_dir='/Users/janik/Downloads/UVVorversuch_cropped/'
-                                                'cropped_norm',
-                                      split=self.test_split,
-                                      transform=transforms.Compose([RandomCrop((416, 369), self.r),
-                                                                    ToRGB(),
-                                                                    AddRandomNoise(),
-                                                                    ToBatches((52, 41), 0),
-                                                                    BatchesToTensors()]))
-
-        test_dataset = torch.utils.data.ConcatDataset([original_test, rotated_test, shifted_test, flipped_lr_test,
-                                                       flipped_ud_test, noisy_test])
+                                         transform=transforms.Compose(self.transformations))
 
         return test_dataset
 
