@@ -14,7 +14,8 @@ class VineBags(data_utils.Dataset):
         self.r = np.random.RandomState(seed)
         self.train_split = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11]
         self.test_split = [3, 4, 12, 13, 14]
-        self.transformations = [ToRGB(), CentralCrop((416, 369)), ToBatches((52, 41), 0), AugmentBatches()]
+        self.transformations = [ToRGB(), CentralCrop((416, 369)), ToBatches((52, 41), 0.5), AugmentBatches()]
+        # self.transformations = [RandomCrop((416, 369), self.r), ToRGB(), ToBatches((52, 41), 0), BatchesToTensors()]
         self.annotation_dir = '/Users/janik/Downloads/UVVorversuch_cropped/cropped_annotation'
         self.image_dir = '/Users/janik/Downloads/UVVorversuch_cropped/cropped_norm'
 
@@ -63,17 +64,18 @@ class VineBags(data_utils.Dataset):
 
     def _create_train_dataset(self):
         train_dataset = GrapeVineDataset(annotation_dir=self.annotation_dir,
-                                          image_dir=self.image_dir,
-                                          split=self.train_split,
-                                          transform=transforms.Compose(self.transformations))
+                                         image_dir=self.image_dir,
+                                         split=self.train_split,
+                                         transform=transforms.Compose(self.transformations))
 
         return train_dataset
 
     def _create_test_dataset(self):
         test_dataset = GrapeVineDataset(annotation_dir=self.annotation_dir,
-                                         image_dir=self.image_dir,
-                                         split=self.test_split,
-                                         transform=transforms.Compose(self.transformations))
+                                        image_dir=self.image_dir,
+                                        split=self.test_split,
+                                        transform=transforms.Compose([ToRGB(), CentralCrop((416, 369)),
+                                                                      ToBatches((52, 41), 0.5), BatchesToTensors()]))
 
         return test_dataset
 

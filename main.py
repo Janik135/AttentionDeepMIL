@@ -1,19 +1,20 @@
 from __future__ import print_function
 
-import numpy as np
-
 import argparse
+import numpy as np
+import os
 import torch
 import torch.utils.data as data_utils
 import torch.optim as optim
-from torch.autograd import Variable
-from torch.utils.tensorboard import SummaryWriter
+
 from grape_dataloader import VineBags
 from model import Attention, GatedAttention
+from torch.autograd import Variable
+from torch.utils.tensorboard import SummaryWriter
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST bags Example')
-parser.add_argument('--epochs', type=int, default=20, metavar='N',
+parser.add_argument('--epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 20)')
 parser.add_argument('--lr', type=float, default=0.0005, metavar='LR',
                     help='learning rate (default: 0.0005)')
@@ -130,8 +131,24 @@ def test():
     print('\nTest Set, Loss: {:.4f}, Test error: {:.4f}'.format(test_loss.cpu().numpy(), test_error))
 
 
+def set_seed(seed=42):
+    """
+    Set random seeds for all possible random processes.
+
+    Args:
+        seed (int)
+    """
+    np.random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 if __name__ == "__main__":
     print('Start Training')
+    set_seed(1)
     for epoch in range(1, args.epochs + 1):
         train(epoch)
     print('Start Testing')

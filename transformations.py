@@ -360,25 +360,30 @@ class RescaleBatches(object):
 
 class AugmentBatches(object):
     """Augment batches
+
+    Args:
+        s (float): The strength of color distortion.
+        p (float): The probability of data augmentation.
     """
 
-    def __init__(self, s=1.0):
+    def __init__(self, s=1.0, p=0.5):
         self.s = s
+        self.p = p
 
     def __call__(self, sample):
         images, labels = sample['images'], sample["labels"]
 
         color_jitter = transforms.ColorJitter(0.9*self.s, 0.9*self.s, 0.9*self.s, 0.1*self.s)
-        rnd_color_jitter = transforms.RandomApply([color_jitter], p=0.8)
+        rnd_color_jitter = transforms.RandomApply([color_jitter], p=self.p)
         transformation = transforms.Compose([transforms.ToPILImage(),
                                              rnd_color_jitter,
                                              transforms.RandomRotation(degrees=15, fill=(128, 128, 128)),
-                                             transforms.RandomHorizontalFlip(),
-                                             transforms.RandomVerticalFlip(),
+                                             transforms.RandomHorizontalFlip(p=self.p),
+                                             transforms.RandomVerticalFlip(p=self.p),
                                              transforms.ToTensor()])
         augmented_batches = []
         for image in images:
             img = transformation(image)
             augmented_batches.append(img)
 
-        return {'images': augmented_batches, 'labels': labels}
+        return {'images': torch.stack(augmented_batches), 'labels': torch.tensor(labels)}
