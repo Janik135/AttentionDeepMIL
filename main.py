@@ -84,7 +84,6 @@ def train(epoch):
         optimizer.zero_grad()
         # calculate loss and metrics
         loss, _ = model.calculate_nll(data, bag_label)
-        writer.add_scalar("Loss/train", loss, epoch)
         # train_loss += loss.data[0]
         train_loss += loss.data
         error, _ = model.calculate_classification_error(data, bag_label)
@@ -97,6 +96,7 @@ def train(epoch):
     # calculate loss and error for epoch
     train_loss /= len(train_loader)
     train_error /= len(train_loader)
+    writer.add_scalar("Loss/train", train_loss, epoch)
 
     print('Epoch: {}, Loss: {:.4f}, Train error: {:.4f}'.format(epoch, train_loss.cpu().numpy(), train_error))
 

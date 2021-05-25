@@ -15,6 +15,7 @@ class VineBags(data_utils.Dataset):
         self.train_split = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11]
         self.test_split = [3, 4, 12, 13, 14]
         self.transformations = [ToRGB(), CentralCrop((416, 369)), ToBatches((52, 41), 0.5), AugmentBatches()]
+        # self.transformations = [ToRGB(), ToDynamicBatches(10, 0.5), AugmentBatches()]
         # self.transformations = [RandomCrop((416, 369), self.r), ToRGB(), ToBatches((52, 41), 0), BatchesToTensors()]
         self.annotation_dir = '/Users/janik/Downloads/UVVorversuch_cropped/cropped_annotation'
         self.image_dir = '/Users/janik/Downloads/UVVorversuch_cropped/cropped_norm'
@@ -75,7 +76,8 @@ class VineBags(data_utils.Dataset):
                                         image_dir=self.image_dir,
                                         split=self.test_split,
                                         transform=transforms.Compose([ToRGB(), CentralCrop((416, 369)),
-                                                                      ToBatches((52, 41), 0.5), BatchesToTensors()]))
+                                                                      ToBatches((52, 41), 0.5),
+                                                                      PrepareValidationBatches()]))
 
         return test_dataset
 

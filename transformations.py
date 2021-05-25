@@ -375,7 +375,9 @@ class AugmentBatches(object):
 
         color_jitter = transforms.ColorJitter(0.9*self.s, 0.9*self.s, 0.9*self.s, 0.1*self.s)
         rnd_color_jitter = transforms.RandomApply([color_jitter], p=self.p)
-        transformation = transforms.Compose([transforms.ToPILImage(),
+        transformation = transforms.Compose([#transforms.ToTensor(),
+                                             transforms.ToPILImage(),
+                                             transforms.Resize((56, 56)),
                                              rnd_color_jitter,
                                              transforms.RandomRotation(degrees=15, fill=(128, 128, 128)),
                                              transforms.RandomHorizontalFlip(p=self.p),
@@ -387,3 +389,21 @@ class AugmentBatches(object):
             augmented_batches.append(img)
 
         return {'images': torch.stack(augmented_batches), 'labels': torch.tensor(labels)}
+
+class PrepareValidationBatches(object):
+    """
+    Prepare batches to have similar preprocessing as augmented training batches
+    """
+
+    def __call__(self, sample):
+        images, labels = sample['images'], sample["labels"]
+        transformation = transforms.Compose([#transforms.ToTensor(),
+                                             transforms.ToPILImage(),
+                                             transforms.Resize((56, 56)),
+                                             transforms.ToTensor()])
+        batches = []
+        for image in images:
+            img = transformation(image)
+            batches.append(img)
+
+        return {'images': torch.stack(batches), 'labels': torch.tensor(labels)}
