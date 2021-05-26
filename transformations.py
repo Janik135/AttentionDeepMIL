@@ -375,7 +375,7 @@ class AugmentBatches(object):
 
         color_jitter = transforms.ColorJitter(0.9*self.s, 0.9*self.s, 0.9*self.s, 0.1*self.s)
         rnd_color_jitter = transforms.RandomApply([color_jitter], p=self.p)
-        transformation = transforms.Compose([#transforms.ToTensor(),
+        transformation = transforms.Compose([# transforms.ToTensor(),
                                              transforms.ToPILImage(),
                                              transforms.Resize((56, 56)),
                                              rnd_color_jitter,
@@ -397,7 +397,7 @@ class PrepareValidationBatches(object):
 
     def __call__(self, sample):
         images, labels = sample['images'], sample["labels"]
-        transformation = transforms.Compose([#transforms.ToTensor(),
+        transformation = transforms.Compose([# transforms.ToTensor(),
                                              transforms.ToPILImage(),
                                              transforms.Resize((56, 56)),
                                              transforms.ToTensor()])

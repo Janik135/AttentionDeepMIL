@@ -22,7 +22,7 @@ class Attention(nn.Module):
         self.feature_extractor_part2 = nn.Sequential(
             nn.Linear(50 * 11 * 11, self.L),
             nn.ReLU(),
-            nn.Dropout()
+            # nn.Dropout()
         )
 
         self.attention = nn.Sequential(
@@ -101,7 +101,7 @@ class GatedAttention(nn.Module):
         )
 
         self.feature_extractor_part2 = nn.Sequential(
-            nn.Linear(50 * 4 * 4, self.L),
+            nn.Linear(50 * 11 * 11, self.L),
             nn.ReLU(),
         )
 
@@ -118,15 +118,15 @@ class GatedAttention(nn.Module):
         self.attention_weights = nn.Linear(self.D, self.K)
 
         self.classifier = nn.Sequential(
-            nn.Linear(self.L*self.K, 1),
-            nn.Sigmoid()
+            nn.Linear(self.L*self.K, 2),
+            nn.LogSoftmax()
         )
 
     def forward(self, x):
         x = x.squeeze(0)
 
         H = self.feature_extractor_part1(x)
-        H = H.view(-1, 50 * 4 * 4)
+        H = H.view(-1, 50 * 11 * 11)
         H = self.feature_extractor_part2(H)  # NxL
 
         A_V = self.attention_V(H)  # NxD
@@ -138,7 +138,8 @@ class GatedAttention(nn.Module):
         M = torch.mm(A, H)  # KxL
 
         Y_prob = self.classifier(M)
-        Y_hat = torch.ge(Y_prob, 0.5).float()
+        # Y_hat = torch.ge(Y_prob, 0.5).float()
+        Y_hat = torch.argmax(Y_prob).float().view(-1)
 
         return Y_prob, Y_hat, A
 
@@ -155,5 +156,14 @@ class GatedAttention(nn.Module):
         Y_prob, _, A = self.forward(X)
         Y_prob = torch.clamp(Y_prob, min=1e-5, max=1. - 1e-5)
         neg_log_likelihood = -1. * (Y * torch.log(Y_prob) + (1. - Y) * torch.log(1. - Y_prob))  # negative log bernoulli
+
+        return neg_log_likelihood, A
+
+    def calculate_nll(self, X, Y):
+        Y_prob, _, A = self.forward(X)
+        # Y_prob = torch.clamp(Y_prob, min=1e-5, max=1. - 1e-5)
+        # weight = torch.Tensor([0.8, 0.2])
+        loss = nn.NLLLoss()
+        neg_log_likelihood = loss(Y_prob, Y)
 
         return neg_log_likelihood, A

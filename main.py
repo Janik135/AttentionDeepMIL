@@ -97,6 +97,7 @@ def train(epoch):
     train_loss /= len(train_loader)
     train_error /= len(train_loader)
     writer.add_scalar("Loss/train", train_loss, epoch)
+    writer.add_scalar("Err/train", train_error, epoch)
 
     print('Epoch: {}, Loss: {:.4f}, Train error: {:.4f}'.format(epoch, train_loss.cpu().numpy(), train_error))
 
