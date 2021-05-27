@@ -5,7 +5,7 @@ import torch
 import torch.utils.data as data_utils
 from transformations import *
 from torchvision import transforms
-from data import GrapeVineDataset
+from grape_data import GrapeVineDataset
 
 
 class VineBags(data_utils.Dataset):
