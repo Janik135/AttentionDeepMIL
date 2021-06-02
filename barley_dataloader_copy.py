@@ -16,48 +16,38 @@ class BarleyBags(data_utils.Dataset):
         self.transformations = [ToDynamicBatches(10, 0), RescaleBatches((56, 56)), BatchesToTensors()]
 
         if self.train:
-            self.train_bags_list, self.train_labels_list = self._create_bags()
+            self.loader = data_utils.DataLoader(BarleyDataset(data_path=self.data_path,
+                                                              dai=self.dai,
+                                                              transform=transforms.Compose(self.transformations),
+                                                              downloaded=True),
+                                                batch_size=1,
+                                                shuffle=False)
         else:
-            self.test_bags_list, self.test_labels_list = self._create_bags()
+            self.loader = data_utils.DataLoader(BarleyDataset(data_path=self.data_path,
+                                                              dai=self.dai,
+                                                              transform=transforms.Compose(self.transformations),
+                                                              downloaded=True),
+                                                batch_size=1,
+                                                shuffle=False)
 
-    def _create_bags(self):
-        if self.train:
-            loader = data_utils.DataLoader(BarleyDataset(data_path=self.data_path,
-                                                         dai=self.dai,
-                                                         transform=transforms.Compose(self.transformations),
-                                                         downloaded=True),
-                                           batch_size=1,
-                                           shuffle=False)
-        else:
-            loader = data_utils.DataLoader(BarleyDataset(data_path=self.data_path,
-                                                         dai=self.dai,
-                                                         transform=transforms.Compose(self.transformations),
-                                                         downloaded=True),
-                                           batch_size=1,
-                                           shuffle=False)
-
-        bags_list = []
-        labels_list = []
-
-        for i, sample_batched in enumerate(loader):
-            bags_list.append(torch.squeeze(sample_batched['images'], 0))
-            labels_list.append(torch.squeeze(sample_batched['labels'], 0))
-
-        return bags_list, labels_list
+        self.dataloader_iterator = iter(self.loader)
 
     def __len__(self):
-        if self.train:
-            return len(self.train_labels_list)
-        else:
-            return len(self.test_labels_list)
+        return len(self.loader)
 
     def __getitem__(self, index):
-        if self.train:
-            bag = self.train_bags_list[index]
-            label = [max(self.train_labels_list[index]), self.train_labels_list[index]]
-        else:
-            bag = self.test_bags_list[index]
-            label = [max(self.test_labels_list[index]), self.test_labels_list[index]]
+        print(index)
+        try:
+            sample_batched = next(self.dataloader_iterator)
+            bag = torch.squeeze(sample_batched['images'], 0)
+            labels = torch.squeeze(sample_batched['labels'], 0)
+            label = max(labels), labels
+        except:
+            self.dataloader_iterator = iter(self.loader)
+            sample_batched = next(self.dataloader_iterator)
+            bag = torch.squeeze(sample_batched['images'], 0)
+            labels = torch.squeeze(sample_batched['labels'], 0)
+            label = max(labels), labels
 
         return bag, label
 
