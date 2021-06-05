@@ -9,7 +9,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 
 from dataloader import MnistBags
-from grape_dataloader import VineBags
+from grape.grape_dataloader import VineBags
 from model import Attention, GatedAttention
 
 # Training settings

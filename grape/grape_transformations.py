@@ -358,6 +358,7 @@ class RescaleBatches(object):
 
         return {'images': resized_images, 'labels': labels}
 
+
 class AugmentBatches(object):
     """Augment batches
 
@@ -389,6 +390,7 @@ class AugmentBatches(object):
             augmented_batches.append(img)
 
         return {'images': torch.stack(augmented_batches), 'labels': torch.tensor(labels)}
+
 
 class PrepareValidationBatches(object):
     """

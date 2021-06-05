@@ -7,14 +7,14 @@ import torch
 import torch.utils.data as data_utils
 import torch.optim as optim
 
-from grape_dataloader import VineBags
+from barley.barley_dataloader import BarleyBags
 from model import Attention, GatedAttention
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST bags Example')
-parser.add_argument('--epochs', type=int, default=100, metavar='N',
+parser.add_argument('--epochs', type=int, default=20, metavar='N',
                     help='number of epochs to train (default: 20)')
 parser.add_argument('--lr', type=float, default=0.0005, metavar='LR',
                     help='learning rate (default: 0.0005)')
@@ -48,12 +48,12 @@ if args.cuda:
 print('Load Train and Test Set')
 loader_kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 
-train_loader = data_utils.DataLoader(VineBags(train=True),
+train_loader = data_utils.DataLoader(BarleyBags(train=True),
                                      batch_size=1,
                                      shuffle=True,
                                      **loader_kwargs)
 
-test_loader = data_utils.DataLoader(VineBags(train=False),
+test_loader = data_utils.DataLoader(BarleyBags(train=False),
                                     batch_size=1,
                                     shuffle=False,
                                     **loader_kwargs)

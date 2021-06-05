@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 class BarleyDataset(Dataset):
     """Barley dataset."""
 
-    def __init__(self, data_path, dai, downloaded=True, transform=None):
+    def __init__(self, data_path, dai, split, downloaded=True, transform=None):
         """
         Args:
             data_path: Directory with all data.
@@ -25,6 +25,8 @@ class BarleyDataset(Dataset):
 
         self.filenames = sorted(list(set(glob.glob(current_path))))
         self.filenames = self._get_filenames()
+        self.filenames = [self.filenames[i] for i, _ in enumerate(self.filenames) if
+                                     i in split]
 
         self.transform = transform
 

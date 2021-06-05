@@ -3,9 +3,9 @@
 import numpy as np
 import torch
 import torch.utils.data as data_utils
-from transformations import *
 from torchvision import transforms
-from grape_data import GrapeVineDataset
+from grape.grape_data import GrapeVineDataset
+from grape.grape_transformations import *
 
 
 class VineBags(data_utils.Dataset):
