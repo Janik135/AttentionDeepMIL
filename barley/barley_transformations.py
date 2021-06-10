@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 from skimage import transform
+from torchvision import transforms
 
 
 class ToDynamicBatches(object):
@@ -84,3 +85,52 @@ class RescaleBatches(object):
             resized_images.append(img)
 
         return {'images': resized_images, 'labels': labels}
+
+
+class ToBatches(object):
+    """Convert images to bags"""
+
+    def __init__(self, output_size, threshold):
+        self.output_size = output_size
+        self.threshold = threshold
+
+    def __call__(self, sample):
+        image, mask, inoculated = sample['image'], sample['annotation']['mask'], \
+                                  sample['annotation']['label_inoculated']
+
+        row_pixels, column_pixels = self.output_size
+        threshold = int(row_pixels * column_pixels * self.threshold)
+
+        image_batches, batch_labels = [], []
+
+        for r in range(0, image.shape[0], row_pixels):
+            for c in range(0, image.shape[1], column_pixels):
+                label = int(np.sum(mask[r:r+row_pixels, c:c+column_pixels]) >= 1 and bool(inoculated) is True)
+                if np.sum(mask[r:r+row_pixels, c:c+column_pixels]) >= threshold:
+                    batch_labels.append(label)
+                    image_batches.append((image[r:r+row_pixels, c:c+column_pixels, :]))
+
+        return {'images': image_batches, 'labels': batch_labels}
+
+
+class CentralCrop(object):
+    """Converts image to tensor, to PIL image, does central crop and returns numpy array"""
+
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
+        else:
+            assert len(output_size) == 2
+            self.output_size = output_size
+
+    def __call__(self, sample):
+        image, annotation = sample['image'], sample['annotation']['mask']
+
+        transformations = transforms.Compose([transforms.ToTensor(), transforms.ToPILImage(),
+                                              transforms.CenterCrop(self.output_size)])
+        image = transformations(image)
+        annotation = transformations(annotation)
+
+        return {'image': np.array(image), 'annotation': {'mask': np.array(annotation),
+                                                         'label_inoculated': sample['annotation']['label_inoculation']}}

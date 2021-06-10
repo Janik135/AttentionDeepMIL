@@ -7,7 +7,7 @@ import torch
 import torch.utils.data as data_utils
 import torch.optim as optim
 
-from barley.barley_dataloader import BarleyBags
+from barley.barley_single_dataloader import BarleyBatches
 from model import Attention, GatedAttention
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
@@ -48,12 +48,12 @@ if args.cuda:
 print('Load Train and Test Set')
 loader_kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 
-train_loader = data_utils.DataLoader(BarleyBags(train=True),
+train_loader = data_utils.DataLoader(BarleyBatches(train=True),
                                      batch_size=1,
                                      shuffle=True,
                                      **loader_kwargs)
 
-test_loader = data_utils.DataLoader(BarleyBags(train=False),
+test_loader = data_utils.DataLoader(BarleyBatches(train=False),
                                     batch_size=1,
                                     shuffle=False,
                                     **loader_kwargs)
