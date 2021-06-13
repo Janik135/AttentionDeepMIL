@@ -8,7 +8,9 @@ import torch.utils.data as data_utils
 import torch.optim as optim
 
 from barley.barley_single_dataloader import BarleyBatches
+from cnn3d_model import ConvNetBarley
 from model import Attention, GatedAttention
+from sklearn.metrics import balanced_accuracy_score
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
@@ -74,6 +76,8 @@ def train(epoch):
     model.train()
     train_loss = 0.
     train_error = 0.
+    y_hat = []
+    y = []
     for batch_idx, (data, label) in enumerate(train_loader):
         bag_label = label[0]
         if args.cuda:
@@ -83,29 +87,36 @@ def train(epoch):
         # reset gradients
         optimizer.zero_grad()
         # calculate loss and metrics
-        loss, _ = model.calculate_nll(data, bag_label)
+        loss = model.calculate_nll(data, bag_label)
         # train_loss += loss.data[0]
         train_loss += loss.data
-        error, _ = model.calculate_classification_error(data, bag_label)
-        train_error += error
+        #error, _ = model.calculate_classification_error(data, bag_label)
+        _, Y_hat = model.forward(data)
+        y_hat.append(Y_hat.numpy().item())
+        y.append(bag_label.numpy().item())
+
+        #train_error += error
         # backward pass
         loss.backward()
         # step
         optimizer.step()
 
     # calculate loss and error for epoch
-    train_loss /= len(train_loader)
+    #train_loss /= len(train_loader)
+    balanced_acc = balanced_accuracy_score(y, y_hat)
     train_error /= len(train_loader)
     writer.add_scalar("Loss/train", train_loss, epoch)
-    writer.add_scalar("Err/train", train_error, epoch)
+    writer.add_scalar("Acc/train", train_error, epoch)
 
-    print('Epoch: {}, Loss: {:.4f}, Train error: {:.4f}'.format(epoch, train_loss.cpu().numpy(), train_error))
+    print('Epoch: {}, Loss: {:.4f}, Train acc(balanc.): {:.4f}'.format(epoch, train_loss.cpu().numpy(), balanced_acc))
 
 
 def test():
     model.eval()
     test_loss = 0.
     test_error = 0.
+    y_hat = []
+    y = []
     for batch_idx, (data, label) in enumerate(test_loader):
         bag_label = label[0]
         instance_labels = label[1]
@@ -115,9 +126,13 @@ def test():
         loss, attention_weights = model.calculate_nll(data, bag_label)
         # test_loss += loss.data[0]
         test_loss += loss.data
-        error, predicted_label = model.calculate_classification_error(data, bag_label)
-        test_error += error
+        _, Y_hat = model.forward(data)
+        y_hat.append(Y_hat.numpy().item())
+        y.append(bag_label.numpy().item())
 
+        #error, predicted_label = model.calculate_classification_error(data, bag_label)
+        #test_error += error
+        '''
         if batch_idx < 5:  # plot bag labels and instance labels for first 5 bags
             bag_level = (bag_label.cpu().data.numpy()[0], int(predicted_label.cpu().data.numpy()))
             instance_level = list(zip(instance_labels.numpy()[0].tolist(),
@@ -125,11 +140,12 @@ def test():
 
             print('\nTrue Bag Label, Predicted Bag Label: {}\n'
                   'True Instance Labels, Attention Weights: {}'.format(bag_level, instance_level))
-
-    test_error /= len(test_loader)
+        '''
+    balanced_acc = balanced_accuracy_score(y, y_hat)
+    #test_error /= len(test_loader)
     test_loss /= len(test_loader)
 
-    print('\nTest Set, Loss: {:.4f}, Test error: {:.4f}'.format(test_loss.cpu().numpy(), test_error))
+    print('\nTest Set, Loss: {:.4f}, Test acc(balanc.): {:.4f}'.format(test_loss.cpu().numpy(), balanced_acc))
 
 
 def set_seed(seed=42):

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data as data_utils
 from barley.barley_single_dataloader import BarleyBatches
+from cnn3d_model import ConvNetBarley
 from torch.optim.lr_scheduler import StepLR
 
 
@@ -119,7 +120,7 @@ def main():
                                     batch_size=1,
                                     shuffle=False)
 
-    model = Net().to(device)
+    model = ConvNetBarley(elu=False, avgpool=False, nll=False, num_classes=2).to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)

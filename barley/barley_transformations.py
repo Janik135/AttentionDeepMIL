@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+from spectral import get_rgb
 from skimage import transform
 from torchvision import transforms
 
@@ -133,4 +134,14 @@ class CentralCrop(object):
         annotation = transformations(annotation)
 
         return {'image': np.array(image), 'annotation': {'mask': np.array(annotation),
-                                                         'label_inoculated': sample['annotation']['label_inoculation']}}
+                                                         'label_inoculated': sample['annotation']['label_inoculated']}}
+
+class ToRGB(object):
+    """Convert hyperspectral images to RGB"""
+
+    def __call__(self, sample):
+        image = sample['image']
+
+        image = get_rgb(image)
+
+        return {'image': image, 'annotation': sample['annotation'].copy()}

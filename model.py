@@ -11,16 +11,16 @@ class Attention(nn.Module):
         self.K = 1
 
         self.feature_extractor_part1 = nn.Sequential(
-            nn.Conv2d(409, 20, kernel_size=5),
+            nn.Conv2d(3, 36, kernel_size=5),
             nn.ReLU(),
             nn.MaxPool2d(2, stride=2),
-            nn.Conv2d(20, 50, kernel_size=5),
+            nn.Conv2d(36, 48, kernel_size=5),
             nn.ReLU(),
             nn.MaxPool2d(2, stride=2)
         )
 
         self.feature_extractor_part2 = nn.Sequential(
-            nn.Linear(50 * 11 * 11, self.L),
+            nn.Linear(48 * 4 * 4, self.L),
             nn.ReLU(),
             # nn.Dropout()
         )
@@ -42,7 +42,7 @@ class Attention(nn.Module):
         #x = x.squeeze(0)
 
         H = self.feature_extractor_part1(x)
-        H = H.view(-1, 50 * 11 * 11)
+        H = H.view(-1, 48 * 4 * 4)
         H = self.feature_extractor_part2(H)  # NxL
 
         '''
@@ -54,13 +54,22 @@ class Attention(nn.Module):
         '''
         Y_prob = self.classifier(H)
         # Y_hat = Y_prob.float()
-        Y_hat = torch.argmax(Y_prob).float().view(-1)
+        Y_hat = Y_prob.argmax(dim=1, keepdim=True)
+        #Y_hat = torch.argmax(Y_prob).float().view(-1)
         # Y_hat = torch.ge(Y_prob, 0.5).float()
 
         return Y_prob, Y_hat
 
     # AUXILIARY METHODS
     def calculate_classification_error(self, X, Y):
+        Y = Y.float()
+        _, Y_hat = self.forward(X)
+        # print(Y, Y_hat)
+        error = 1. - Y_hat.eq(Y).cpu().float().mean().data.item()
+
+        return error, Y_hat
+
+    def calculate_balanced_error(self, X, Y):
         Y = Y.float()
         _, Y_hat = self.forward(X)
         # print(Y, Y_hat)
