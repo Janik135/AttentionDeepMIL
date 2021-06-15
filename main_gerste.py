@@ -7,11 +7,11 @@ import torch
 import torch.utils.data as data_utils
 import torch.optim as optim
 
-from barley.barley_single_dataloader import BarleyBatches
 from model import Attention, GatedAttention
 from sklearn.metrics import balanced_accuracy_score
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
+from uv_dataloader import LeafDataset as DatasetGerste
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST bags Example')
@@ -36,6 +36,12 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--model', type=str, default='attention', help='Choose b/w attention and gated_attention')
+parser.add_argument('--n_splits', default=5, type=int,
+                    help='')
+parser.add_argument('--split', default=0, type=int,
+                    help='')
+parser.add_argument('-dp', '--dataset_path', default="/Users/janik/Downloads/UV_Gerste/", type=str,
+                    help='')
 parser.add_argument("--port", default=52720)
 
 args = parser.parse_args()
@@ -46,15 +52,51 @@ if args.cuda:
     torch.cuda.manual_seed(args.seed)
     print('\nGPU is ON!')
 
+hyperparams = {
+    'genotype': ["WT"],
+    'inoculated': [0, 1],  # [0, 1],
+    'dai': ["5"],
+    'signature_pre_clip': 0,
+    'signature_post_clip': 1,
+    'test_size': 0.5,
+    'max_num_balanced_inoculated': 5000,
+    'num_classes': 2,
+    'num_heads': 2,
+    'hidden_layer_size': 64,
+    'savgol_filter_params': [7, 3]
+}
+
 print('Load Train and Test Set')
 loader_kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 
-train_loader = data_utils.DataLoader(BarleyBatches(train=True),
+train_loader = data_utils.DataLoader(DatasetGerste(data_path=args.dataset_path,
+                                                   genotype=hyperparams['genotype'], inoculated=hyperparams['inoculated'],
+                                                   dai=hyperparams['dai'],
+                                                   test_size=0.2,
+                                                   signature_pre_clip=hyperparams['signature_pre_clip'],
+                                                   signature_post_clip=hyperparams['signature_post_clip'],
+                                                   max_num_balanced_inoculated=hyperparams['max_num_balanced_inoculated'],
+                                                   num_samples_file=500,
+                                                   mode='train',
+                                                   n_splits=args.n_splits,
+                                                   split=args.split,
+                                                   superpixel=True),
                                      batch_size=1,
                                      shuffle=True,
                                      **loader_kwargs)
 
-test_loader = data_utils.DataLoader(BarleyBatches(train=False),
+test_loader = data_utils.DataLoader(DatasetGerste(data_path=args.dataset_path,
+                                                  genotype=hyperparams['genotype'], inoculated=hyperparams['inoculated'],
+                                                  dai=hyperparams['dai'],
+                                                  test_size=0.2,
+                                                  signature_pre_clip=hyperparams['signature_pre_clip'],
+                                                  signature_post_clip=hyperparams['signature_post_clip'],
+                                                  max_num_balanced_inoculated=hyperparams['max_num_balanced_inoculated'],
+                                                  num_samples_file=500,
+                                                  mode='test',
+                                                  n_splits=args.n_splits,
+                                                  split=args.split,
+                                                  superpixel=True),
                                     batch_size=1,
                                     shuffle=False,
                                     **loader_kwargs)
@@ -78,7 +120,7 @@ def train(epoch):
     y_hat = []
     y = []
     for batch_idx, (data, label) in enumerate(train_loader):
-        bag_label = label[0]
+        bag_label = label[2]
         if args.cuda:
             data, bag_label = data.cuda(), bag_label.cuda()
         data, bag_label = Variable(data), Variable(bag_label)
@@ -87,21 +129,16 @@ def train(epoch):
         optimizer.zero_grad()
         # calculate loss and metrics
         loss = model.calculate_nll(data, bag_label)
-        # train_loss += loss.data[0]
         train_loss += loss.data
-        #error, _ = model.calculate_classification_error(data, bag_label)
         _, Y_hat = model.forward(data)
         y_hat.append(Y_hat.numpy().item())
         y.append(bag_label.numpy().item())
 
-        #train_error += error
         # backward pass
         loss.backward()
         # step
         optimizer.step()
 
-    # calculate loss and error for epoch
-    #train_loss /= len(train_loader)
     balanced_acc = balanced_accuracy_score(y, y_hat)
     train_error /= len(train_loader)
     writer.add_scalar("Loss/train", train_loss, epoch)
@@ -113,35 +150,21 @@ def train(epoch):
 def test():
     model.eval()
     test_loss = 0.
-    test_error = 0.
     y_hat = []
     y = []
     for batch_idx, (data, label) in enumerate(test_loader):
-        bag_label = label[0]
-        instance_labels = label[1]
+        bag_label = label[2]
         if args.cuda:
             data, bag_label = data.cuda(), bag_label.cuda()
         data, bag_label = Variable(data), Variable(bag_label)
         loss, attention_weights = model.calculate_nll(data, bag_label)
-        # test_loss += loss.data[0]
         test_loss += loss.data
         _, Y_hat = model.forward(data)
         y_hat.append(Y_hat.numpy().item())
         y.append(bag_label.numpy().item())
 
-        #error, predicted_label = model.calculate_classification_error(data, bag_label)
-        #test_error += error
-        '''
-        if batch_idx < 5:  # plot bag labels and instance labels for first 5 bags
-            bag_level = (bag_label.cpu().data.numpy()[0], int(predicted_label.cpu().data.numpy()))
-            instance_level = list(zip(instance_labels.numpy()[0].tolist(),
-                                      np.round(attention_weights.cpu().data.numpy()[0], decimals=3).tolist()))
 
-            print('\nTrue Bag Label, Predicted Bag Label: {}\n'
-                  'True Instance Labels, Attention Weights: {}'.format(bag_level, instance_level))
-        '''
     balanced_acc = balanced_accuracy_score(y, y_hat)
-    #test_error /= len(test_loader)
     test_loss /= len(test_loader)
 
     print('\nTest Set, Loss: {:.4f}, Test acc(balanc.): {:.4f}'.format(test_loss.cpu().numpy(), balanced_acc))

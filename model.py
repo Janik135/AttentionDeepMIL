@@ -11,7 +11,7 @@ class Attention(nn.Module):
         self.K = 1
 
         self.feature_extractor_part1 = nn.Sequential(
-            nn.Conv2d(3, 36, kernel_size=5),
+            nn.Conv2d(409, 36, kernel_size=5),
             nn.ReLU(),
             nn.MaxPool2d(2, stride=2),
             nn.Conv2d(36, 48, kernel_size=5),
@@ -20,7 +20,7 @@ class Attention(nn.Module):
         )
 
         self.feature_extractor_part2 = nn.Sequential(
-            nn.Linear(48 * 4 * 4, self.L),
+            nn.Linear(48 * 5 * 1, self.L),
             nn.ReLU(),
             # nn.Dropout()
         )
@@ -42,7 +42,7 @@ class Attention(nn.Module):
         #x = x.squeeze(0)
 
         H = self.feature_extractor_part1(x)
-        H = H.view(-1, 48 * 4 * 4)
+        H = H.view(-1, 48 * 5 * 1)
         H = self.feature_extractor_part2(H)  # NxL
 
         '''
