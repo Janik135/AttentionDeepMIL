@@ -451,7 +451,7 @@ class LeafDataset(Dataset):
                  mode='train', test_size=0.95, genotype=None, inoculated=None, dai=None,
                  signature_pre_clip=0, signature_post_clip=200, max_num_balanced_inoculated=-1,
                  savgol_filter_params=(7, 3), num_samples_file=-1, n_splits=5, split=0,
-                 superpixel=False):
+                 superpixel=False, bags=False):
         print("Using wavelength ({}) from {} nm to {} nm".format(len(wavelength),
                                                                  wavelength[signature_pre_clip:-signature_post_clip][0],
                                                                  wavelength[signature_pre_clip:-signature_post_clip][
@@ -461,6 +461,7 @@ class LeafDataset(Dataset):
         self.signature_clip = [signature_pre_clip, -signature_post_clip]
         self.num_samples_file = num_samples_file
         self.superpixel = superpixel
+        self.bags = bags
 
         # load data
         base_path_dataset_parsed = os.path.join(data_path, "../../Downloads/UV_Gerste/parsed_data")
@@ -470,7 +471,7 @@ class LeafDataset(Dataset):
                                                                dai=dai,
                                                                max_num_balanced_inoculated=self.max_num_balanced_inoculated,
                                                                num_samples_file = self.num_samples_file,
-                                                               superpixel=superpixel)
+                                                               superpixel=superpixel, bags=bags)
         if test_size == 0:
             train_index = np.arange(len(self.data))
             test_index = np.arange(len(self.data))
@@ -537,37 +538,58 @@ class LeafDataset(Dataset):
                  sample["label_obj"], sample["label_running"])
         res_sample = hs_img[sample["pos"][0], sample["pos"][1], :].squeeze()
         res_sample = self.normalize(res_sample)
-
         #
         # res_sample += -0.5
         return res_sample, label
 
     def getSuperpixel(self, idx):
-        sample = self.data[self.indices[idx]]
-        hs_img = self.data_memmaps[sample["path"]][0]
-        """
-        "hs_img": img,
-        "hs_img_idx": len(data_hs)-1,
-        "path": hs_img_path,
-        "pos": ((x0,x1), (y0,y1)),
-        "mask": ...
-        "label_genotype": bbox_obj_dict["label_genotype"],
-        "label_dai": bbox_obj_dict["label_dai"],
-        "label_inoculated": bbox_obj_dict["label_inoculated"],
-        "label_obj": bbox_obj_dict["label_obj"],
-        "label_running": bbox_obj_dict["label_running"],            
-        """
-        label = (sample["label_genotype"], sample["label_dai"], sample["label_inoculated"],
-                 sample["label_obj"], sample["label_running"])
+        samples = self.data[self.indices[idx]]
+        if self.bags:
+            hs_img = self.data_memmaps[samples[0]["path"]][0]
+            """
+            "hs_img": img,
+            "hs_img_idx": len(data_hs)-1,
+            "path": hs_img_path,
+            "pos": ((x0,x1), (y0,y1)),
+            "mask": ...
+            "label_genotype": bbox_obj_dict["label_genotype"],
+            "label_dai": bbox_obj_dict["label_dai"],
+            "label_inoculated": bbox_obj_dict["label_inoculated"],
+            "label_obj": bbox_obj_dict["label_obj"],
+            "label_running": bbox_obj_dict["label_running"],            
+            """
+            bag_instances, bag_labels = [], []
+            for sample in samples:
+                label = (sample["label_genotype"], sample["label_dai"], sample["label_inoculated"],
+                         sample["label_obj"], sample["label_running"])
 
-        res_sample = hs_img[sample["pos"][0][0]:sample["pos"][0][1], sample["pos"][1][0]:sample["pos"][1][1], :]
-        #res_sample = res_sample[sample["mask"].astype(int) == 1]
-        #res_sample = np.mean(res_sample, axis=(0,))
-        #res_sample = self.normalize(res_sample)
-        res_sample = torch.from_numpy(res_sample.transpose((2, 0, 1)))
+                res_sample = hs_img[sample["pos"][0][0]:sample["pos"][0][1], sample["pos"][1][0]:sample["pos"][1][1], :]
+                res_sample = res_sample[sample["mask"].astype(int) == 1]
+                res_sample = np.mean(res_sample, axis=(0,))
+                res_sample = self.normalize(res_sample)
+                bag_instances.append(res_sample)
+                bag_labels.append(label[2])
+        else:
+            hs_img = self.data_memmaps[samples["path"]][0]
+            bag_labels = (samples["label_genotype"], samples["label_dai"], samples["label_inoculated"],
+                     samples["label_obj"], samples["label_running"])
+
+            res_sample = hs_img[samples["pos"][0][0]:samples["pos"][0][1], samples["pos"][1][0]:samples["pos"][1][1], :]
+            res_sample = res_sample[samples["mask"].astype(int) == 1]
+            res_sample = np.mean(res_sample, axis=(0,))
+            bag_instances = self.normalize(res_sample)
+        #res_sample = self.crop(res_sample, (25, 750))
+        #res_sample = torch.from_numpy(res_sample.transpose((2, 0, 1)))
         #
         # res_sample += -0.5
-        return res_sample, label
+        return bag_instances, bag_labels
+
+    def crop(self, res_sample, tw, th):
+        w, h = res_sample.shape[:-1]
+        x1 = int(round((w - tw) / 2.))
+        y1 = int(round((h - th) / 2.))
+
+        return res_sample[x1:x1+tw, y1:y1+th, :]
 
     def normalize(self, res_sample):
         res_sample = res_sample[self.signature_clip[0]:self.signature_clip[1]]
@@ -641,7 +663,8 @@ class LeafDataset(Dataset):
 
 
 def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotype=None, inoculated=None, dai=None,
-                            max_num_balanced_inoculated=-1, mask_erosion_value=5, num_samples_file=-1, superpixel=False):
+                            max_num_balanced_inoculated=-1, mask_erosion_value=5, num_samples_file=-1, superpixel=False,
+                            bags=False):
     current_path = os.path.join(base_path_dataset_parsed, "*.p")
 
     filenames = sorted(list(set(glob.glob(current_path))))
@@ -756,7 +779,11 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
             balance_inoculated_label_current[bbox_obj_dict["label_inoculated"]] += len(selected_file_samples)
 
             selected_file_samples = [d for (i, d) in enumerate(data_pos_file) if i in selected_file_samples]
-            data_pos += selected_file_samples
+            if bags:
+                data_pos += [selected_file_samples]
+            else:
+                data_pos += selected_file_samples
+
             cnt_files_used += 1
 
     print("Leafs used", cnt_files_used, "total #sample", len(data_pos))

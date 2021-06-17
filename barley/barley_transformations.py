@@ -136,6 +136,46 @@ class CentralCrop(object):
         return {'image': np.array(image), 'annotation': {'mask': np.array(annotation),
                                                          'label_inoculated': sample['annotation']['label_inoculated']}}
 
+
+class CenterCrop(object):
+    """Does center crop with ndarrays"""
+
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
+        else:
+            assert len(output_size) == 2
+            self.output_size = output_size
+
+    def __call__(self, sample):
+        image, annotation = sample['image'], sample['annotation']['mask']
+
+        image = crop(image, self.output_size[0], self.output_size[1])
+        annotation = crop(annotation, self.output_size[0], self.output_size[1])
+
+        return {'image': image, 'annotation': {'mask': annotation,
+                                               'label_inoculated': sample['annotation']['label_inoculated']}}
+
+
+def crop(image, tw, th):
+    dim3 = False
+    if len(image.shape)>2:
+        w, h = image.shape[:-1]
+        dim3 = True
+    else:
+        w, h = image.shape
+
+    x1 = int(round((w - tw) / 2.))
+    y1 = int(round((h - th) / 2.))
+
+    if dim3:
+        img = image[x1:x1+tw, y1:y1+th, :]
+    else:
+        img = image[x1:x1+tw, y1:y1+th]
+    return img
+
+
 class ToRGB(object):
     """Convert hyperspectral images to RGB"""
 

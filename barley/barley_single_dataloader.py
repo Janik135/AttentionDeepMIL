@@ -13,7 +13,7 @@ class BarleyBatches(data_utils.Dataset):
         self.train = train
         self.dai = dai
         self.data_path = "/Users/janik/Downloads/UV_Gerste/"
-        self.transformations = [ToRGB(), CentralCrop((27, 806)), ToBatches((9, 13), 0.5), RescaleBatches((28, 28)),
+        self.transformations = [ToRGB(), CenterCrop((25, 750)), ToBatches((5, 10), 0.5), RescaleBatches((28, 28)),
                                 BatchesToTensors()]
         #self.transformations = [ToDynamicBatches(10, 0.5), RescaleBatches((56, 56)), BatchesToTensors()]
         self.train_split = [0, 1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,

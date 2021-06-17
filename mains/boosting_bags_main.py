@@ -43,7 +43,7 @@ hyperparams = {
     'signature_pre_clip': 0,
     'signature_post_clip': 1,
     'test_size': 0.5,
-    'max_num_balanced_inoculated': 5000,
+    'max_num_balanced_inoculated': 1300,
     'num_classes': 2,
     'num_heads': 2,
     'hidden_layer_size': 64,
@@ -63,11 +63,12 @@ if __name__ == "__main__":
                                           signature_pre_clip=hyperparams['signature_pre_clip'],
                                           signature_post_clip=hyperparams['signature_post_clip'],
                                           max_num_balanced_inoculated=hyperparams['max_num_balanced_inoculated'],
-                                          num_samples_file=500,
+                                          num_samples_file=130,
                                           mode='train',
                                           n_splits=args.n_splits,
                                           split=args.split,
-                                          superpixel=True)
+                                          superpixel=True,
+                                          bags=True)
     test_data = DatasetGerste(data_path=args.dataset_path,
                               genotype=hyperparams['genotype'], inoculated=hyperparams['inoculated'],
                               dai=hyperparams['dai'],
@@ -75,29 +76,28 @@ if __name__ == "__main__":
                               signature_pre_clip=hyperparams['signature_pre_clip'],
                               signature_post_clip=hyperparams['signature_post_clip'],
                               max_num_balanced_inoculated=hyperparams['max_num_balanced_inoculated'],
-                              num_samples_file=500,
+                              num_samples_file=130,
                               mode='test',
                               n_splits=args.n_splits,
                               split=args.split,
-                              superpixel=True)
-    x_train, y_train = [], []
+                              superpixel=True,
+                              bags=True)
+    all_x_train, all_y_train = [], []
     for i in range(len(train_data)):
-        x, y = train_data[i]
-        x_train.append([x])
-        y_train.append([y[2]])
-    x_train = np.concatenate(x_train)
-    y_train = np.concatenate(y_train)
-
-    x_test, y_test = [], []
-    for i in range(len(test_data)):
-        x, y = test_data[i]
-        x_test.append([x])
-        y_test.append([y[2]])
-    x_test = np.concatenate(x_test)
-    y_test = np.concatenate(y_test)
+        x_train, y_train = train_data[i]
+        all_x_train.append(x_train)
+        all_y_train.append(y_train)
+    all_x_train = np.concatenate(all_x_train)
+    all_y_train = np.concatenate(all_y_train)
 
     print('Init Model')
     clf = GradientBoostingClassifier(n_estimators=1000, learning_rate=1.0, max_depth=1, random_state=0).\
-        fit(x_train, y_train)
-    y_pred = clf.predict(x_test)
-    print(balanced_accuracy_score(y_test, y_pred))
+        fit(all_x_train, all_y_train)
+    all_y_test, all_y_pred= [], []
+    for i in range(len(test_data)):
+        x_test, y_test = test_data[i]
+        y_pred = clf.predict(x_test)
+        all_y_test.append(np.max(y_test))
+        #all_y_pred.append(np.max(y_pred))
+        all_y_pred.append(np.mean(y_pred))
+    print(balanced_accuracy_score(all_y_test, all_y_pred))
