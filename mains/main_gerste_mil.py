@@ -8,6 +8,7 @@ import uuid
 
 from hyperparams import get_param_class
 from setproctitle import setproctitle
+from sklearn.metrics import balanced_accuracy_score
 from train_self_attention import SANNetwork
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -39,6 +40,21 @@ parser.add_argument('-dp', '--dataset_path',
 args = parser.parse_args()
 
 
+def balanced_accuracy(target, pred):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    res = balanced_accuracy_score(target, pred)
+    return res
+
+
+def getPredAndTarget(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        return pred.view(-1).detach().cpu().numpy().tolist(), target.view(-1).detach().cpu().numpy().tolist()
+
+
 def train_attention():
     param_class = get_param_class(args.data)
     run_id = args.data + '_' + str(uuid.uuid1())
@@ -50,7 +66,9 @@ def train_attention():
                                 signature_post_clip=param_class.signature_post_clip,
                                 max_num_balanced_inoculated=param_class.max_num_balanced_inoculated,
                                 num_samples_file=param_class.num_samples_file,
-                                mode='train')  # 50000
+                                mode='train',
+                                superpixel=True,
+                                bags=True)  # 50000
     dataset_test = LeafDataset(data_path=args.dataset_path,
                                genotype=param_class.genotype, inoculated=param_class.inoculated, dai=param_class.dai,
                                test_size=param_class.test_size,
@@ -58,12 +76,14 @@ def train_attention():
                                signature_post_clip=param_class.signature_post_clip,
                                max_num_balanced_inoculated=param_class.max_num_balanced_inoculated,  # 50000
                                num_samples_file=param_class.num_samples_file,
-                               mode="test")
+                               mode="test",
+                               superpixel=True,
+                               bags=True)
 
     print("Number of samples train", len(dataset_train))
     print("Number of samples test", len(dataset_test))
-    dataloader = DataLoader(dataset_train, batch_size=param_class.batch_size, shuffle=True, num_workers=0)
-    dataloader_test = DataLoader(dataset_test, batch_size=param_class.batch_size, shuffle=False, num_workers=0,
+    dataloader = DataLoader(dataset_train, batch_size=1, shuffle=True, num_workers=0)
+    dataloader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=0,
                                  drop_last=False)
 
     hyperparams = dataset_train.hyperparams
@@ -99,7 +119,7 @@ def train_attention():
     device = "cuda"
     model.to(device)
 
-    balanced_loss_weight = torch.tensor([1., 1.], device=device)  # torch.tensor([0.75, 0.25], device=device)
+    balanced_loss_weight = torch.tensor([1., 0.25], device=device)  # torch.tensor([0.75, 0.25], device=device)
     crit = torch.nn.CrossEntropyLoss(weight=balanced_loss_weight)
     best_acc = 0
     for epoch in tqdm(range(num_epochs)):
@@ -108,17 +128,19 @@ def train_attention():
         correct = 0
         total = 0
         for i, (features, labels) in enumerate(dataloader):
-            labels = labels[2]
-
+            #labels = labels[2]
             features = features.float().to(device)
             labels = labels.long().to(device)
             model.train()
             outputs = model.forward(features)
             outputs = outputs.view(labels.shape[0], -1)
+            labels = labels.view(-1)
             loss = crit(outputs, labels)
             optimizer.zero_grad()
             _, predicted = torch.max(outputs.data, 1)
-            correct += (predicted == labels).sum().item()
+            batch_pred, batch_target = getPredAndTarget(outputs, labels)
+            correct += balanced_accuracy(batch_target, batch_pred) * labels.size(0)  # mean
+            # correct += (predicted == labels).sum().item()
             total += labels.size(0)
             loss.backward()
             optimizer.step()
@@ -136,15 +158,19 @@ def train_attention():
             losses_per_batch = []
             with torch.no_grad():
                 for i, (features, labels) in enumerate(dataloader_test):
-                    labels = labels[2]
+                    # labels = labels[2]
                     features = features.float().to(device)
                     labels = labels.long().to(device)
                     outputs = model.forward(features)
+                    outputs = outputs.view(labels.shape[0], -1)
+                    labels = labels.view(-1)
                     loss = crit(outputs, labels)
                     losses_per_batch.append(float(loss))
                     _, predicted = torch.max(outputs.data, 1)
                     total += labels.size(0)
-                    correct += (predicted == labels).sum().item()
+                    batch_pred, batch_target = getPredAndTarget(outputs, labels)
+                    correct += balanced_accuracy(batch_target, batch_pred) * labels.size(0)
+                    # correct += (predicted == labels).sum().item()
                 mean_loss = np.mean(losses_per_batch)
                 writer.add_scalar('Loss/test', mean_loss, epoch)
 

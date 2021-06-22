@@ -494,7 +494,10 @@ class LeafDataset(Dataset):
             raise ValueError("mode not supported")
 
         self.savgol_filter_params = savgol_filter_params
-        self.input_size = len(self.__getitem__(0)[0])
+        if bags:
+            self.input_size = len(self.__getitem__(0)[0][1])
+        else:
+            self.input_size = len(self.__getitem__(0)[0])
         self.hyperparams = {
             'genotype': genotype,
             'inoculated': inoculated,
@@ -567,8 +570,10 @@ class LeafDataset(Dataset):
                 res_sample = res_sample[sample["mask"].astype(int) == 1]
                 res_sample = np.mean(res_sample, axis=(0,))
                 res_sample = self.normalize(res_sample)
-                bag_instances.append(res_sample)
+                bag_instances.append(torch.Tensor(res_sample))
                 bag_labels.append(label[2])
+            bag_instances = torch.stack(bag_instances)
+            bag_labels = torch.Tensor([np.max(bag_labels)])
         else:
             hs_img = self.data_memmaps[samples["path"]][0]
             bag_labels = (samples["label_genotype"], samples["label_dai"], samples["label_inoculated"],

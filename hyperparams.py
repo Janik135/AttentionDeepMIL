@@ -6,7 +6,7 @@ class WT_Run0():
         self.genotype = ["WT"]
         self.inoculated = [0, 1]
         self.dai = ["5"]
-        self.test_size = 0.8
+        self.test_size = 0.2
         self.signature_pre_clip = 0
         self.signature_post_clip = 1
         self.batch_size = 128
