@@ -10,7 +10,7 @@ from torch.autograd import Variable
 
 from dataloader import MnistBags
 from grape.grape_dataloader import VineBags
-from model import Attention, GatedAttention
+from model_old import Attention, GatedAttention
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST bags Example')
