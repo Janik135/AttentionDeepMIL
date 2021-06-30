@@ -564,16 +564,18 @@ class LeafDataset(Dataset):
             bag_instances, bag_labels = [], []
             for sample in samples:
                 label = (sample["label_genotype"], sample["label_dai"], sample["label_inoculated"],
-                         sample["label_obj"], sample["label_running"])
+                         sample["label_obj"], sample["label_running"], sample['mask'])
 
                 res_sample = hs_img[sample["pos"][0][0]:sample["pos"][0][1], sample["pos"][1][0]:sample["pos"][1][1], :]
-                res_sample = res_sample[sample["mask"].astype(int) == 1]
-                res_sample = np.mean(res_sample, axis=(0,))
-                res_sample = self.normalize(res_sample)
-                bag_instances.append(torch.Tensor(res_sample))
-                bag_labels.append(label[2])
-            bag_instances = torch.stack(bag_instances)
-            bag_labels = torch.Tensor([np.max(bag_labels)])
+                #res_sample = res_sample[sample["mask"].astype(int) == 1]
+                #res_sample = np.mean(res_sample, axis=(0,))
+                #res_sample = self.normalize(res_sample)
+                #bag_instances.append(torch.Tensor(res_sample))
+                bag_instances.append(res_sample)
+                bag_labels.append(label[5])
+                #bag_labels.append(label[2])
+            #bag_instances = torch.stack(bag_instances)
+            #bag_labels = torch.Tensor([np.max(bag_labels)])
         else:
             hs_img = self.data_memmaps[samples["path"]][0]
             bag_labels = (samples["label_genotype"], samples["label_dai"], samples["label_inoculated"],

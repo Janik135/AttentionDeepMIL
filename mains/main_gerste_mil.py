@@ -116,10 +116,11 @@ def train_attention():
     save_dir = "./uv_dataset/results_cv/"
     writer = SummaryWriter(log_dir=save_dir + run_id, comment="_" + "_id_{}".format(run_id))
 
-    device = "cuda"
-    model.to(device)
+    #device = "cuda"
+    #model.to(device)
 
-    balanced_loss_weight = torch.tensor([0.75, 0.25], device=device)  # torch.tensor([0.75, 0.25], device=device)
+    #balanced_loss_weight = torch.tensor([0.75, 0.25], device=device)  # torch.tensor([0.75, 0.25], device=device)
+    balanced_loss_weight = torch.tensor([0.75, 0.25])
     crit = torch.nn.CrossEntropyLoss(weight=balanced_loss_weight)
     best_acc = 0
     for epoch in tqdm(range(num_epochs)):
@@ -129,9 +130,9 @@ def train_attention():
         target, pred = [], []
         total = 0
         for i, (features, labels) in enumerate(dataloader):
-            # labels = labels[2]
-            features = features.float().to(device)
-            labels = labels.long().to(device)
+            #labels = labels[2]
+            features = features.float()#.to(device)
+            labels = labels.long()#.to(device)
             model.train()
             outputs, _ = model.forward(features)
             outputs = outputs.view(labels.shape[0], -1)
@@ -151,8 +152,8 @@ def train_attention():
         mean_loss = np.mean(losses_per_batch)
         correct = balanced_accuracy(target, pred)
         writer.add_scalar('Loss/train', mean_loss, epoch)
-        writer.add_scalar('Accuracy/train', 100 * correct / total, epoch)
-        print("Epoch {}, mean loss per batch {}, train acc {}".format(epoch, mean_loss, 100 * correct / total))
+        writer.add_scalar('Accuracy/train', 100 * correct, epoch)
+        print("Epoch {}, mean loss per batch {}, train acc {}".format(epoch, mean_loss, 100 * correct))
 
         if (epoch + 1) % args.test_epoch == 0 or epoch + 1 == num_epochs:
             correct_test = 0
@@ -163,9 +164,9 @@ def train_attention():
             attention_weights = []
             with torch.no_grad():
                 for i, (features, labels) in enumerate(dataloader_test):
-                    # labels = labels[2]
-                    features = features.float().to(device)
-                    labels = labels.long().to(device)
+                    #labels = labels[2]
+                    features = features.float()#.to(device)
+                    labels = labels.long()#.to(device)
                     outputs, att = model.forward(features)
                     attention_weights.append(att.squeeze(0).numpy())
                     outputs = outputs.view(labels.shape[0], -1)
@@ -177,18 +178,19 @@ def train_attention():
                     batch_pred, batch_target = getPredAndTarget(outputs, labels)
                     target.append(batch_target)
                     pred.append(batch_pred)
-                    # correct += balanced_accuracy(batch_target, batch_pred) * labels.size(0)
+                    # correct_test += balanced_accuracy(batch_target, batch_pred) * labels.size(0)
                     # correct += (predicted == labels).sum().item()
                 mean_loss = np.mean(losses_per_batch)
+                print(target, pred)
                 correct_test = balanced_accuracy(target, pred)
                 writer.add_scalar('Loss/test', mean_loss, epoch)
             np.save('attention_weights.npy', attention_weights)
             print('Accuracy of the network on the test samples: %d %%' % (
-                    100 * correct / total))
-            writer.add_scalar('Accuracy/test', 100 * correct_test / total, epoch)
+                    100 * correct_test))
+            writer.add_scalar('Accuracy/test', 100 * correct_test, epoch)
 
-            if (correct_test / total) >= best_acc:
-                best_acc = (correct_test / total)
+            if (correct_test) >= best_acc:
+                best_acc = (correct_test)
             model.train()
 
         scheduler.step()
