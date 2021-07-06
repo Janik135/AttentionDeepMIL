@@ -571,11 +571,12 @@ class LeafDataset(Dataset):
                 #res_sample = np.mean(res_sample, axis=(0,))
                 #res_sample = self.normalize(res_sample)
                 #bag_instances.append(torch.Tensor(res_sample))
-                bag_instances.append(res_sample)
-                bag_labels.append(label[5])
-                #bag_labels.append(label[2])
-            #bag_instances = torch.stack(bag_instances)
-            #bag_labels = torch.Tensor([np.max(bag_labels)])
+                bag_instances.append(torch.from_numpy(res_sample.transpose((2, 0, 1))))
+                #bag_instances.append(res_sample)
+                #bag_labels.append(label[5])
+                bag_labels.append(label[2])
+            bag_instances = torch.stack(bag_instances)
+            bag_labels = torch.Tensor([np.max(bag_labels)])
         else:
             hs_img = self.data_memmaps[samples["path"]][0]
             bag_labels = (samples["label_genotype"], samples["label_dai"], samples["label_inoculated"],
@@ -735,7 +736,14 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
             data_hs[hs_img_path][1]["bbox_filename"].append(filename)
             #print(data_hs[hs_img_path][1]["bbox_filename"])
         # in bbox
-
+        x_diff = max_x - min_x
+        new_x = int(round((x_diff - 25) / 2.))
+        min_x = min_x + new_x
+        max_x = min_x + 25
+        y_diff = max_y - min_y
+        new_y = int(round((y_diff - 631) / 2.))
+        min_y = min_y + new_y
+        max_y = min_y + 631
         if superpixel:
             step_size = 7
             for y in range(min_y + step_size, max_y - step_size, step_size*2):

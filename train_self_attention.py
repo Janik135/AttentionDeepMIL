@@ -61,7 +61,8 @@ class SANNetwork(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.fc2 = nn.Linear(input_size, hidden_layer_size)
         self.fc3 = nn.Linear(hidden_layer_size, num_classes)
-        self.pooling = nn.AdaptiveAvgPool2d((1, num_classes))
+        self.embedding_pooling = nn.AdaptiveAvgPool2d((1, hidden_layer_size))
+        self.instance_pooling = nn.AdaptiveAvgPool2d((1, num_classes))
         self.multi_head = torch.nn.ModuleList([torch.nn.Linear(input_size, input_size) for i in [1] * num_heads])
         self.attention = nn.Sequential(
             nn.Linear(hidden_layer_size, 128),
@@ -110,7 +111,7 @@ class SANNetwork(nn.Module):
         out = self.fc2(out)
         out = self.dropout(out)
         out = self.activation(out)
-
+        '''
         ## attention pooling
         out = out.squeeze(0)
         A = self.attention(out)  # NxK
@@ -118,11 +119,13 @@ class SANNetwork(nn.Module):
         A = nn.Softmax(dim=1)(A)  # softmax over N
 
         M = torch.mm(A, out)
+        '''
 
+        out = self.embedding_pooling(out)
         ## dense hidden (l2 in the paper, output)
-        out = self.fc3(M)
-        #out = self.pooling(out)
-        return out, A
+        out = self.fc3(out)
+        #out = self.instance_pooling(out)
+        return out
 
     def get_attention(self, x):
         return self.forward_attention(x, return_softmax=True) / self.num_heads

@@ -6,6 +6,8 @@ import os
 import torch
 import uuid
 
+from cnn_model import CNNModel
+from cnn3d_model import ConvNetBarley
 from hyperparams import get_param_class
 from setproctitle import setproctitle
 from sklearn.metrics import balanced_accuracy_score
@@ -99,12 +101,16 @@ def train_attention():
     hyperparams['num_epochs'] = args.num_epochs
     hyperparams['lr_scheduler_steps'] = args.lr_scheduler_steps
 
+    '''
     model = SANNetwork(input_size=dataset_train.input_size,
                        num_classes=hyperparams['num_classes'],
                        hidden_layer_size=hyperparams['hidden_layer_size'],
                        dropout=0.02,
                        num_heads=hyperparams['num_heads'],
                        device="cuda")
+    '''
+    model = ConvNetBarley(elu=False, avgpool=False, nll=False, num_classes=param_class.num_classes)
+    #model = CNNModel(num_classes=param_class.num_classes)
 
     num_epochs = hyperparams['num_epochs']
     optimizer = torch.optim.Adam(model.parameters(), lr=hyperparams['lr'])
@@ -132,9 +138,10 @@ def train_attention():
         for i, (features, labels) in enumerate(dataloader):
             #labels = labels[2]
             features = features.float()#.to(device)
+            features = features.permute((1, 0, 2, 3, 4))
             labels = labels.long()#.to(device)
             model.train()
-            outputs, _ = model.forward(features)
+            outputs = model.forward(features)
             outputs = outputs.view(labels.shape[0], -1)
             labels = labels.view(-1)
             loss = crit(outputs, labels)
@@ -166,9 +173,10 @@ def train_attention():
                 for i, (features, labels) in enumerate(dataloader_test):
                     #labels = labels[2]
                     features = features.float()#.to(device)
+                    features = features.permute((1, 0, 2, 3, 4))
                     labels = labels.long()#.to(device)
-                    outputs, att = model.forward(features)
-                    attention_weights.append(att.squeeze(0).numpy())
+                    outputs = model.forward(features)
+                    #attention_weights.append(att.squeeze(0).numpy())
                     outputs = outputs.view(labels.shape[0], -1)
                     labels = labels.view(-1)
                     loss = crit(outputs, labels)
@@ -184,7 +192,7 @@ def train_attention():
                 print(target, pred)
                 correct_test = balanced_accuracy(target, pred)
                 writer.add_scalar('Loss/test', mean_loss, epoch)
-            np.save('attention_weights.npy', attention_weights)
+                #np.save('attention_weights.npy', attention_weights)
             print('Accuracy of the network on the test samples: %d %%' % (
                     100 * correct_test))
             writer.add_scalar('Accuracy/test', 100 * correct_test, epoch)

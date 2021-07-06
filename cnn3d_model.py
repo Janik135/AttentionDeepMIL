@@ -61,10 +61,12 @@ class InputTransition(nn.Module):
         # do we want a PRELU here as well?
         out = self.bn1(self.conv1(x))
         # split input in to 16 channels
+
         x16 = torch.cat((x, x, x, x, x, x, x, x,
                          x, x, x, x, x, x, x, x), 1)
 
         out = self.relu1(torch.add(out, x16))
+
         return out
 
 
@@ -72,7 +74,7 @@ class DownTransition(nn.Module):
     def __init__(self, inChans, nConvs, elu, outChans=0, dropout=False):
         super(DownTransition, self).__init__()
         if outChans == 0:
-            outChans = 2 * inChans
+            outChans = 4 * inChans
 
         self.down_conv = nn.Conv3d(inChans, outChans, kernel_size=2, stride=2)
         self.bn1 = nn.BatchNorm3d(outChans)  # ContBatchNorm3d(outChans)
@@ -148,9 +150,7 @@ class ConvNetBarley(nn.Module):
             self.features = nn.Sequential(
                 InputTransition(16, elu),
                 DownTransition(16, 1, elu, dropout=True),
-                DownTransition(32, 2, elu, dropout=True),
-                DownTransition(64, 3, elu, dropout=True),
-                DownTransition(128, 2, elu, dropout=True),
+                DownTransition(64, 2, elu, dropout=True),
                 nn.AvgPool3d(kernel_size=(4, 1, 1))
             )
             self.classifier = nn.Sequential(
