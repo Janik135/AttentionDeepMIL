@@ -149,8 +149,10 @@ class ConvNetBarley(nn.Module):
             self.last_wv = 1
             self.features = nn.Sequential(
                 InputTransition(16, elu),
-                DownTransition(16, 1, elu, dropout=True),
-                DownTransition(64, 2, elu, dropout=True),
+                DownTransition(16, 1, elu),
+                DownTransition(32, 2, elu),
+                DownTransition(64, 3, elu, dropout=True),
+                DownTransition(128, 2, elu, dropout=True),
                 nn.AvgPool3d(kernel_size=(4, 1, 1))
             )
             self.classifier = nn.Sequential(
@@ -164,12 +166,15 @@ class ConvNetBarley(nn.Module):
             self.features = nn.Sequential(
                 InputTransition(16, elu),
                 DownTransition(16, 1, elu),
-                DownTransition(32, 2, elu),
-                DownTransition(64, 3, elu, dropout=True),
-                DownTransition(128, 2, elu, dropout=True),
+                DownTransition(64, 2, elu, dropout=True)
+            )
+            self.attention = nn.Sequential(
+                nn.Linear(256 * 102 * 6 * 3, 128),
+                nn.Tanh(),
+                nn.Linear(128, 1)
             )
             self.classifier = nn.Sequential(
-                nn.Linear(256 * 11 * 7 * 7, 512),
+                nn.Linear(256 * 102 * 6 * 3, 512),
                 nn.ReLU(),
                 nn.Dropout(),
                 nn.Linear(512, num_classes)
@@ -177,6 +182,11 @@ class ConvNetBarley(nn.Module):
 
     def forward(self, x):
         features = self.features(x)
-        features = features.view(-1, 256 * self.last_wv * 7 * 7)
-        out = self.classifier(features)
+        features = features.view(-1, 256 * 102 * 6 * 3)
+        A = self.attention(features)  # NxK
+        A = torch.transpose(A, 1, 0)  # KxN
+        A = nn.Softmax(dim=1)(A)  # softmax over N
+
+        M = torch.mm(A, features)
+        out = self.classifier(M)
         return out

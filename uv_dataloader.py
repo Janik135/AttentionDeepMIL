@@ -451,7 +451,7 @@ class LeafDataset(Dataset):
                  mode='train', test_size=0.95, genotype=None, inoculated=None, dai=None,
                  signature_pre_clip=0, signature_post_clip=200, max_num_balanced_inoculated=-1,
                  savgol_filter_params=(7, 3), num_samples_file=-1, n_splits=5, split=0,
-                 superpixel=False, bags=False):
+                 superpixel=False, bags=False, validation=False):
         print("Using wavelength ({}) from {} nm to {} nm".format(len(wavelength),
                                                                  wavelength[signature_pre_clip:-signature_post_clip][0],
                                                                  wavelength[signature_pre_clip:-signature_post_clip][
@@ -462,6 +462,7 @@ class LeafDataset(Dataset):
         self.num_samples_file = num_samples_file
         self.superpixel = superpixel
         self.bags = bags
+        self.validation = validation
 
         # load data
         base_path_dataset_parsed = os.path.join(data_path, "../../Downloads/UV_Gerste/parsed_data")
@@ -480,6 +481,9 @@ class LeafDataset(Dataset):
 
             splits = [(train, test) for train, test in sss.split(self.data, np.zeros([len(self.data)]))]
             train_index, test_index = splits[split]
+            sss_val = StratifiedShuffleSplit(n_splits=n_splits, test_size=0.5, random_state=0)
+            splits = [(test, val) for test, val in sss_val.split(test_index, np.ones([len(test_index)]))]
+            test_index, val_index = test_index[splits[split][0]], test_index[splits[split][1]]
             print("Splitting data for cross validation, n_splits: {}, split: {}".format(n_splits, split))
 
         if mode == 'train':
@@ -567,11 +571,11 @@ class LeafDataset(Dataset):
                          sample["label_obj"], sample["label_running"], sample['mask'])
 
                 res_sample = hs_img[sample["pos"][0][0]:sample["pos"][0][1], sample["pos"][1][0]:sample["pos"][1][1], :]
-                #res_sample = res_sample[sample["mask"].astype(int) == 1]
-                #res_sample = np.mean(res_sample, axis=(0,))
-                #res_sample = self.normalize(res_sample)
-                #bag_instances.append(torch.Tensor(res_sample))
-                bag_instances.append(torch.from_numpy(res_sample.transpose((2, 0, 1))))
+                res_sample = res_sample[sample["mask"].astype(int) == 1]
+                res_sample = np.mean(res_sample, axis=(0,))
+                res_sample = self.normalize(res_sample)
+                bag_instances.append(torch.Tensor(res_sample))
+                #bag_instances.append(torch.from_numpy(res_sample.transpose((2, 0, 1))))
                 #bag_instances.append(res_sample)
                 #bag_labels.append(label[5])
                 bag_labels.append(label[2])
@@ -736,6 +740,7 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
             data_hs[hs_img_path][1]["bbox_filename"].append(filename)
             #print(data_hs[hs_img_path][1]["bbox_filename"])
         # in bbox
+        '''
         x_diff = max_x - min_x
         new_x = int(round((x_diff - 25) / 2.))
         min_x = min_x + new_x
@@ -744,6 +749,7 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
         new_y = int(round((y_diff - 631) / 2.))
         min_y = min_y + new_y
         max_y = min_y + 631
+        '''
         if superpixel:
             step_size = 7
             for y in range(min_y + step_size, max_y - step_size, step_size*2):

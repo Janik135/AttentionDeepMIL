@@ -23,7 +23,7 @@ class CNNModel(nn.Module):
         conv_layer = nn.Sequential(
             nn.Conv3d(in_c, out_c, kernel_size=(3, 3, 3), padding=0),
             nn.LeakyReLU(),
-            nn.MaxPool3d((3, 2, 2)),
+            nn.MaxPool3d((2, 2, 2)),
         )
         return conv_layer
 

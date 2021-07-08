@@ -111,7 +111,7 @@ class SANNetwork(nn.Module):
         out = self.fc2(out)
         out = self.dropout(out)
         out = self.activation(out)
-        '''
+
         ## attention pooling
         out = out.squeeze(0)
         A = self.attention(out)  # NxK
@@ -119,13 +119,12 @@ class SANNetwork(nn.Module):
         A = nn.Softmax(dim=1)(A)  # softmax over N
 
         M = torch.mm(A, out)
-        '''
 
-        out = self.embedding_pooling(out)
+        #out = self.embedding_pooling(out)
         ## dense hidden (l2 in the paper, output)
-        out = self.fc3(out)
+        out = self.fc3(M)
         #out = self.instance_pooling(out)
-        return out
+        return out, A
 
     def get_attention(self, x):
         return self.forward_attention(x, return_softmax=True) / self.num_heads
