@@ -69,6 +69,17 @@ class SANNetwork(nn.Module):
             nn.Tanh(),
             nn.Linear(128, 1)
         )
+        self.attention_V = nn.Sequential(
+            nn.Linear(hidden_layer_size, 128),
+            nn.Tanh()
+        )
+
+        self.attention_U = nn.Sequential(
+            nn.Linear(hidden_layer_size, 128),
+            nn.Sigmoid()
+        )
+
+        self.attention_weights = nn.Linear(128, 1)
         #self.multi_head.to(device)
 
     def forward_attention(self, input_space, return_softmax=False):
@@ -112,9 +123,12 @@ class SANNetwork(nn.Module):
         out = self.dropout(out)
         out = self.activation(out)
 
-        ## attention pooling
+        ## (gated) attention pooling
         out = out.squeeze(0)
-        A = self.attention(out)  # NxK
+        A_V = self.attention_V(out)  # NxD
+        A_U = self.attention_U(out)  # NxD
+        A = self.attention_weights(A_V * A_U) # element wise multiplication # NxK
+        #A = self.attention(out)  # NxK
         A = torch.transpose(A, 1, 0)  # KxN
         A = nn.Softmax(dim=1)(A)  # softmax over N
 

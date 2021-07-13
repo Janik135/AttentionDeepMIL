@@ -15,7 +15,7 @@ from train_self_attention import SANNetwork
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from utils.data_augmentation import Augmentation
+from utils.pytorchtools import EarlyStopping
 from uv_dataloader import LeafDataset
 
 parser = argparse.ArgumentParser(description='Crazy Stuff')
@@ -73,8 +73,7 @@ def train_attention():
                                 mode='train',
                                 superpixel=True,
                                 bags=True,
-                                validation=False,
-                                transform=Augmentation())  # 50000
+                                validation=True)  # 50000
     dataset_test = LeafDataset(data_path=args.dataset_path,
                                genotype=param_class.genotype, inoculated=param_class.inoculated, dai=param_class.dai,
                                test_size=param_class.test_size,
@@ -86,17 +85,33 @@ def train_attention():
                                mode="test",
                                superpixel=True,
                                bags=True,
-                               validation=False)
+                               validation=True)
+    dataset_val = LeafDataset(data_path=args.dataset_path,
+                              genotype=param_class.genotype, inoculated=param_class.inoculated, dai=param_class.dai,
+                              test_size=param_class.test_size,
+                              signature_pre_clip=param_class.signature_pre_clip,
+                              signature_post_clip=param_class.signature_post_clip,
+                              max_num_balanced_inoculated=param_class.max_num_balanced_inoculated,  # 50000
+                              num_samples_file=param_class.num_samples_file,
+                              split=args.split,
+                              mode="validation",
+                              superpixel=True,
+                              bags=True,
+                              validation=True)
 
     print("Number of samples train", len(dataset_train))
     print("Number of samples test", len(dataset_test))
+    print("Number of samples val", len(dataset_val))
     dataloader = DataLoader(dataset_train, batch_size=1, shuffle=True, num_workers=0)
     dataloader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=0,
                                  drop_last=False)
+    dataloader_val = DataLoader(dataset_val, batch_size=1, shuffle=False, num_workers=0,
+                                drop_last=False)
 
     hyperparams = dataset_train.hyperparams
     print("Number of batches train", len(dataloader))
     print("Number of batches test", len(dataloader_test))
+    print("Number of batches val", len(dataloader_val))
 
     # Original class counts train: 67578 264112
     # Original class counts test: 68093 263597
@@ -106,16 +121,16 @@ def train_attention():
     hyperparams['lr'] = args.lr
     hyperparams['num_epochs'] = args.num_epochs
     hyperparams['lr_scheduler_steps'] = args.lr_scheduler_steps
-    '''
+
     model = SANNetwork(input_size=dataset_train.input_size,
                        num_classes=hyperparams['num_classes'],
                        hidden_layer_size=hyperparams['hidden_layer_size'],
                        dropout=0.9,
                        num_heads=hyperparams['num_heads'],
                        device="cuda")
-    '''
+
     #model = ConvNetBarley(elu=False, avgpool=False, nll=False, num_classes=param_class.num_classes)
-    model = CNNModel(num_classes=param_class.num_classes)
+    #model = CNNModel(num_classes=param_class.num_classes)
 
     num_epochs = hyperparams['num_epochs']
     optimizer = torch.optim.Adam(model.parameters(), lr=hyperparams['lr'])
@@ -134,6 +149,7 @@ def train_attention():
     balanced_loss_weight = torch.tensor([0.75, 0.25])
     crit = torch.nn.CrossEntropyLoss(weight=balanced_loss_weight)
     best_acc = 0
+    early_stopping = EarlyStopping(patience=60, verbose=True)
     for epoch in tqdm(range(num_epochs)):
         setproctitle("Gerste_MIL" + args.mode + " | epoch {} of {}".format(epoch + 1, num_epochs))
         losses_per_batch = []
@@ -143,7 +159,7 @@ def train_attention():
         for i, (features, labels) in enumerate(dataloader):
             #labels = labels[2]
             features = features.float()#.to(device)
-            features = features.permute((1, 0, 2, 3, 4))
+            #features = features.permute((1, 0, 2, 3, 4))
             labels = labels.long()#.to(device)
             model.train()
             outputs, _ = model.forward(features)
@@ -166,8 +182,9 @@ def train_attention():
         writer.add_scalar('Loss/train', mean_loss, epoch)
         writer.add_scalar('Accuracy/train', 100 * correct, epoch)
         print("Epoch {}, mean loss per batch {}, train acc {}".format(epoch, mean_loss, 100 * correct))
-
         if (epoch + 1) % args.test_epoch == 0 or epoch + 1 == num_epochs:
+            # Testing
+
             correct_test = 0
             target, pred = [], []
             total = 0
@@ -178,7 +195,7 @@ def train_attention():
                 for i, (features, labels) in enumerate(dataloader_test):
                     #labels = labels[2]
                     features = features.float()#.to(device)
-                    features = features.permute((1, 0, 2, 3, 4))
+                    #features = features.permute((1, 0, 2, 3, 4))
                     labels = labels.long()#.to(device)
                     outputs, att = model.forward(features)
                     attention_weights.append(att.squeeze(0).numpy())
@@ -199,8 +216,47 @@ def train_attention():
                 writer.add_scalar('Loss/test', mean_loss, epoch)
                 np.save('attention_weights.npy', attention_weights)
             print('Accuracy, mean loss per batch of the network on the test samples: {} %, {}'.format(
-                    100 * correct_test, mean_loss))
+                100 * correct_test, mean_loss))
             writer.add_scalar('Accuracy/test', 100 * correct_test, epoch)
+
+            # Validation
+            correct_val = 0
+            target, pred = [], []
+            total = 0
+            losses_per_batch = []
+            attention_weights_val = []
+            with torch.no_grad():
+                for i, (features, labels) in enumerate(dataloader_val):
+                    #labels = labels[2]
+                    features = features.float()#.to(device)
+                    #features = features.permute((1, 0, 2, 3, 4))
+                    labels = labels.long()#.to(device)
+                    outputs, att = model.forward(features)
+                    attention_weights_val.append(att.squeeze(0).numpy())
+                    outputs = outputs.view(labels.shape[0], -1)
+                    labels = labels.view(-1)
+                    loss = crit(outputs, labels)
+                    losses_per_batch.append(float(loss))
+                    _, predicted = torch.max(outputs.data, 1)
+                    total += labels.size(0)
+                    batch_pred, batch_target = getPredAndTarget(outputs, labels)
+                    target.append(batch_target)
+                    pred.append(batch_pred)
+                    # correct_val += balanced_accuracy(batch_target, batch_pred) * labels.size(0)
+                    # correct += (predicted == labels).sum().item()
+                mean_loss = np.mean(losses_per_batch)
+                print(target, pred)
+                correct_val = balanced_accuracy(target, pred)
+                writer.add_scalar('Loss/val', mean_loss, epoch)
+                #np.save('attention_weights_val.npy', attention_weights_val)
+            print('Accuracy, mean loss per batch of the network on the validation samples: {} %, {}'.format(
+                100 * correct_val, mean_loss))
+            writer.add_scalar('Accuracy/val', 100 * correct_val, epoch)
+            early_stopping(mean_loss, model)
+
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
 
             if (correct_test) >= best_acc:
                 best_acc = (correct_test)

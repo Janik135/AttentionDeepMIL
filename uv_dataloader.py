@@ -451,7 +451,7 @@ class LeafDataset(Dataset):
                  mode='train', test_size=0.95, genotype=None, inoculated=None, dai=None,
                  signature_pre_clip=0, signature_post_clip=200, max_num_balanced_inoculated=-1,
                  savgol_filter_params=(7, 3), num_samples_file=-1, n_splits=5, split=0,
-                 superpixel=False, bags=False, validation=False):
+                 superpixel=False, bags=False, validation=False, transform=None):
         print("Using wavelength ({}) from {} nm to {} nm".format(len(wavelength),
                                                                  wavelength[signature_pre_clip:-signature_post_clip][0],
                                                                  wavelength[signature_pre_clip:-signature_post_clip][
@@ -463,6 +463,8 @@ class LeafDataset(Dataset):
         self.superpixel = superpixel
         self.bags = bags
         self.validation = validation
+        self.transform = transform
+        self.mode = mode
 
         # load data
         base_path_dataset_parsed = os.path.join(data_path, "../../Downloads/UV_Gerste/parsed_data")
@@ -478,18 +480,23 @@ class LeafDataset(Dataset):
             test_index = np.arange(len(self.data))
         else:
             sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=0)
-
+            labels = [item[0]['label_inoculated'] for item in self.data]
             splits = [(train, test) for train, test in sss.split(self.data, np.zeros([len(self.data)]))]
+            #splits = [(train, test) for train, test in sss.split(self.data, labels)]
             train_index, test_index = splits[split]
-            sss_val = StratifiedShuffleSplit(n_splits=n_splits, test_size=0.5, random_state=0)
-            splits = [(test, val) for test, val in sss_val.split(test_index, np.ones([len(test_index)]))]
-            test_index, val_index = test_index[splits[split][0]], test_index[splits[split][1]]
+            if validation:
+                sss_val = StratifiedShuffleSplit(n_splits=n_splits, test_size=0.5, random_state=0)
+                labels = [item[0]['label_inoculated'] for i, item in enumerate(self.data) if i in test_index]
+                splits = [(test, val) for test, val in sss_val.split(test_index, labels)]
+                test_index, val_index = test_index[splits[split][0]], test_index[splits[split][1]]
             print("Splitting data for cross validation, n_splits: {}, split: {}".format(n_splits, split))
 
         if mode == 'train':
             self.indices = train_index
         elif mode == 'test':
             self.indices = test_index
+        elif mode == 'validation':
+            self.indices = val_index
         elif mode == 'eval':
             self.indices = train_index.tolist()
             self.indices += test_index.tolist()
@@ -523,9 +530,15 @@ class LeafDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.superpixel:
-            return self.getSuperpixel(idx)
+            sample = self.getSuperpixel(idx)
+            if self.transform:
+                sample = self.transform(sample)
+            return sample
         else:
-            return self.getPixel(idx)
+            sample = self.getPixel(idx)
+            if self.transform:
+                sample = self.transform(sample)
+            return sample
 
     def getPixel(self, idx):
         sample = self.data[self.indices[idx]]
@@ -571,15 +584,20 @@ class LeafDataset(Dataset):
                          sample["label_obj"], sample["label_running"], sample['mask'])
 
                 res_sample = hs_img[sample["pos"][0][0]:sample["pos"][0][1], sample["pos"][1][0]:sample["pos"][1][1], :]
-                res_sample = res_sample[sample["mask"].astype(int) == 1]
-                res_sample = np.mean(res_sample, axis=(0,))
-                res_sample = self.normalize(res_sample)
-                bag_instances.append(torch.Tensor(res_sample))
+                #res_sample = res_sample[sample["mask"].astype(int) == 1]
+                #res_sample = np.mean(res_sample, axis=(0,))
+                #res_sample = self.normalize(res_sample)
+                #bag_instances.append(torch.Tensor(res_sample))
                 #bag_instances.append(torch.from_numpy(res_sample.transpose((2, 0, 1))))
-                #bag_instances.append(res_sample)
+                if self.mode == 'test':
+                    bag_instances.append(torch.from_numpy(res_sample.transpose((2, 0, 1))))
+                elif self.mode == 'train':
+                    bag_instances.append(res_sample)
                 #bag_labels.append(label[5])
                 bag_labels.append(label[2])
-            bag_instances = torch.stack(bag_instances)
+            #bag_instances = torch.stack(bag_instances)
+            if self.mode == 'test':
+                bag_instances = torch.stack(bag_instances)
             bag_labels = torch.Tensor([np.max(bag_labels)])
         else:
             hs_img = self.data_memmaps[samples["path"]][0]
@@ -740,7 +758,7 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
             data_hs[hs_img_path][1]["bbox_filename"].append(filename)
             #print(data_hs[hs_img_path][1]["bbox_filename"])
         # in bbox
-        '''
+
         x_diff = max_x - min_x
         new_x = int(round((x_diff - 25) / 2.))
         min_x = min_x + new_x
@@ -749,7 +767,7 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
         new_y = int(round((y_diff - 631) / 2.))
         min_y = min_y + new_y
         max_y = min_y + 631
-        '''
+
         if superpixel:
             step_size = 7
             for y in range(min_y + step_size, max_y - step_size, step_size*2):

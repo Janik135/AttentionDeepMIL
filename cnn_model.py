@@ -8,7 +8,7 @@ class CNNModel(nn.Module):
 
         self.conv_layer1 = self._conv_layer_set(1, 32)
         self.conv_layer2 = self._conv_layer_set(32, 64)
-        self.fc1 = nn.Linear(2**3*64*44, 256)
+        self.fc1 = nn.Linear(2**3*64*100, 256)
         self.attention = nn.Sequential(
             nn.Linear(256, 128),
             nn.Tanh(),
@@ -43,4 +43,4 @@ class CNNModel(nn.Module):
         M = torch.mm(A, out)
         out = self.fc2(M)
 
-        return out
+        return out, A
