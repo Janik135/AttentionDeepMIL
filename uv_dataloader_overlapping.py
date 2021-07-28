@@ -474,7 +474,7 @@ class LeafDataset(Dataset):
                                                                dai=dai,
                                                                max_num_balanced_inoculated=self.max_num_balanced_inoculated,
                                                                num_samples_file = self.num_samples_file,
-                                                               superpixel=superpixel, bags=bags)
+                                                               superpixel=superpixel, bags=bags, mode=mode)
         if test_size == 0:
             train_index = np.arange(len(self.data))
             test_index = np.arange(len(self.data))
@@ -563,7 +563,10 @@ class LeafDataset(Dataset):
         return res_sample, label
 
     def getSuperpixel(self, idx):
-        samples = self.data[self.indices[idx]]
+        if self.mode == 'train':
+            samples = _get_overlapping_data_pos(self.num_samples_file, self.data[self.indices[idx]])
+        else:
+            samples = self.data[self.indices[idx]]
         if self.bags:
             hs_img = self.data_memmaps[samples[0]["path"]][0]
             """
@@ -584,22 +587,22 @@ class LeafDataset(Dataset):
                          sample["label_obj"], sample["label_running"], sample['mask'])
 
                 res_sample = hs_img[sample["pos"][0][0]:sample["pos"][0][1], sample["pos"][1][0]:sample["pos"][1][1], :]
-                res_sample = res_sample[sample["mask"].astype(int) == 1]
-                res_sample = np.mean(res_sample, axis=(0,))
-                res_sample = self.normalize(res_sample)
-                bag_instances.append(torch.Tensor(res_sample))
+                #res_sample = res_sample[sample["mask"].astype(int) == 1]
+                #res_sample = np.mean(res_sample, axis=(0,))
+                #res_sample = self.normalize(res_sample)
+                #bag_instances.append(torch.Tensor(res_sample))
                 #bag_instances.append(torch.from_numpy(res_sample.transpose((2, 0, 1))))
-                '''
+
                 if self.mode == 'test':
                     bag_instances.append(torch.from_numpy(res_sample.transpose((2, 0, 1))))
                 elif self.mode == 'train':
                     bag_instances.append(res_sample)
-                '''
                 #bag_labels.append(label[5])
+
                 bag_labels.append(label[2])
-            bag_instances = torch.stack(bag_instances)
-            #if self.mode == 'test':
-            #    bag_instances = torch.stack(bag_instances)
+            #bag_instances = torch.stack(bag_instances)
+            if self.mode == 'test':
+                bag_instances = torch.stack(bag_instances)
             bag_labels = torch.Tensor([np.max(bag_labels)])
         else:
             hs_img = self.data_memmaps[samples["path"]][0]
@@ -696,7 +699,7 @@ class LeafDataset(Dataset):
 
 def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotype=None, inoculated=None, dai=None,
                             max_num_balanced_inoculated=-1, mask_erosion_value=5, num_samples_file=-1, superpixel=False,
-                            bags=False):
+                            bags=False, mode='train'):
     current_path = os.path.join(base_path_dataset_parsed, "*.p")
 
     filenames = sorted(list(set(glob.glob(current_path))))
@@ -760,12 +763,12 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
             data_hs[hs_img_path][1]["bbox_filename"].append(filename)
             #print(data_hs[hs_img_path][1]["bbox_filename"])
         # in bbox
-        '''
+
         x_diff = max_x - min_x
         new_x = int(round((x_diff - 25) / 2.))
         min_x = min_x + new_x
         max_x = min_x + 25
-
+        '''
         y_diff = max_y - min_y
         new_y = int(round((y_diff - 631) / 2.))
         min_y = min_y + new_y
@@ -773,7 +776,8 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
         '''
         if superpixel:
             step_size = 7
-            for y in range(min_y + step_size, max_y - step_size, step_size*2):
+            step = 1 if mode == 'train' else step_size*2
+            for y in range(min_y + step_size, max_y - step_size, step):
                 max_x_ = max_x + 1 if max_x + 1 < classes.shape[0] else max_x # fix for extreme case on border if bbox
                 super_pixel_x_range = np.arange(min_x, max_x_)
                 #print(classes.shape, super_pixel_x_range)
@@ -810,27 +814,38 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
                                     "label_running": bbox_obj_dict["label_running"],
                                 }
                             )
+        if mode == 'train':
+            data_pos.append(data_pos_file)
+        else:
+            selected_file_samples = np.arange(len(data_pos_file))
+            if num_samples_file > 0:
+                np.random.shuffle(selected_file_samples)
+                selected_file_samples = selected_file_samples[:num_samples_file]
 
-        selected_file_samples = np.arange(len(data_pos_file))
-        #print(len(data_pos_file))
-        if num_samples_file > 0:
-            np.random.shuffle(selected_file_samples)
-            selected_file_samples = selected_file_samples[:num_samples_file]
+            if balance_inoculated_label_current[bbox_obj_dict["label_inoculated"]] + len(selected_file_samples) <= balance_inoculated_label_max_num:
+                balance_inoculated_label_current[bbox_obj_dict["label_inoculated"]] += len(selected_file_samples)
 
-        if balance_inoculated_label_current[bbox_obj_dict["label_inoculated"]] + len(selected_file_samples) <= balance_inoculated_label_max_num:
-            balance_inoculated_label_current[bbox_obj_dict["label_inoculated"]] += len(selected_file_samples)
+                selected_file_samples = [d for (i, d) in enumerate(data_pos_file) if i in selected_file_samples]
+                if bags:
+                    data_pos += [selected_file_samples]
+                else:
+                    data_pos += selected_file_samples
 
-            selected_file_samples = [d for (i, d) in enumerate(data_pos_file) if i in selected_file_samples]
-            if bags:
-                data_pos += [selected_file_samples]
-            else:
-                data_pos += selected_file_samples
-
-            cnt_files_used += 1
+                cnt_files_used += 1
 
     print("Leafs used", cnt_files_used, "total #sample", len(data_pos))
     print("Dataset num sample per class", balance_inoculated_label_current)
     return data_hs, data_pos
+
+
+def _get_overlapping_data_pos(num_samples_file, data_pos_file):
+    selected_file_samples = np.arange(len(data_pos_file))
+    if num_samples_file > 0:
+        np.random.shuffle(selected_file_samples)
+    selected_file_samples = selected_file_samples[:num_samples_file]
+
+    selected_file_samples = [d for (i, d) in enumerate(data_pos_file) if i in selected_file_samples]
+    return selected_file_samples
 
 
 def _load_preprocessed_test():

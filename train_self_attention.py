@@ -73,12 +73,10 @@ class SANNetwork(nn.Module):
             nn.Linear(hidden_layer_size, 128),
             nn.Tanh()
         )
-
         self.attention_U = nn.Sequential(
             nn.Linear(hidden_layer_size, 128),
             nn.Sigmoid()
         )
-
         self.attention_weights = nn.Linear(128, 1)
         #self.multi_head.to(device)
 

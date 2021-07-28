@@ -181,7 +181,7 @@ def train_attention():
                     features = features.permute((1, 0, 2, 3, 4))
                     labels = labels.long()#.to(device)
                     outputs, att = model.forward(features)
-                    attention_weights.append(att.squeeze(0).numpy())
+                    attention_weights.append(att.cpu().squeeze(0).numpy())
                     outputs = outputs.view(labels.shape[0], -1)
                     labels = labels.view(-1)
                     loss = crit(outputs, labels)
@@ -197,7 +197,7 @@ def train_attention():
                 print(target, pred)
                 correct_test = balanced_accuracy(target, pred)
                 writer.add_scalar('Loss/test', mean_loss, epoch)
-                np.save('attention_weights.npy', attention_weights)
+                #np.save('attention_weights.npy', attention_weights)
             print('Accuracy, mean loss per batch of the network on the test samples: {} %, {}'.format(
                     100 * correct_test, mean_loss))
             writer.add_scalar('Accuracy/test', 100 * correct_test, epoch)

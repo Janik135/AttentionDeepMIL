@@ -6,12 +6,12 @@ class WT_Run0():
         self.genotype = ["WT"]
         self.inoculated = [0, 1]
         self.dai = ["5"]
-        self.test_size = 0.2
+        self.test_size = 0.3
         self.signature_pre_clip = 20
         self.signature_post_clip = 1
         self.batch_size = 128
         self.savgol_filter_params = [7, 3]
-        self.num_samples_file = -1
+        self.num_samples_file = 300
         self.max_num_balanced_inoculated = 50000
         #self.num_samples_file = 1300
         #self.max_num_balanced_inoculated = 13000

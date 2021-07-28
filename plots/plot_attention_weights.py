@@ -53,7 +53,7 @@ def plot_attention():
                                  drop_last=False)
 
     # all following parameters (min, max and pred) only count for run 0
-    attention_weights = np.load('mains/attention_weights.npy', allow_pickle=True)
+    attention_weights = np.load('../mains/attention_weights.npy', allow_pickle=True)
     min_att = 2.489354e-18
     max_att = 0.99967647
     y = [0, 1, 1, 1, 1, 1, 0, 1, 1, 0]
