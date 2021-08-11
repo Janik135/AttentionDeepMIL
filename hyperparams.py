@@ -11,7 +11,7 @@ class WT_Run0():
         self.signature_post_clip = 1
         self.batch_size = 128
         self.savgol_filter_params = [7, 3]
-        self.num_samples_file = 300
+        self.num_samples_file = -1
         self.max_num_balanced_inoculated = 50000
         #self.num_samples_file = 1300
         #self.max_num_balanced_inoculated = 13000

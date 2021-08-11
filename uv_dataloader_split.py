@@ -484,6 +484,14 @@ class LeafDataset(Dataset):
             #splits = [(train, test) for train, test in sss.split(self.data, np.zeros([len(self.data)]))]
             splits = [(train, test) for train, test in sss.split(self.data, labels)]
             train_index, test_index = splits[split]
+            self.train_data = [self.data[i] for i in train_index]
+            self.train_data = np.concatenate(self.train_data)
+            np.random.shuffle(self.train_data)
+
+            self.test_data = [self.data[i] for i in test_index]
+            self.test_data = np.concatenate(self.test_data)
+            np.random.shuffle(self.test_data)
+
             if validation:
                 sss_val = StratifiedShuffleSplit(n_splits=n_splits, test_size=0.5, random_state=0)
                 labels = [item[0]['label_inoculated'] for i, item in enumerate(self.data) if i in test_index]
@@ -526,7 +534,10 @@ class LeafDataset(Dataset):
         }
 
     def __len__(self):
-        return len(self.indices)
+        if self.mode == 'train':
+            return len(self.train_data)
+        elif self.mode == 'test':
+            return len(self.test_data)
 
     def __getitem__(self, idx):
         if self.superpixel:
@@ -563,7 +574,10 @@ class LeafDataset(Dataset):
         return res_sample, label
 
     def getSuperpixel(self, idx):
-        samples = self.data[self.indices[idx]]
+        if self.mode == 'train':
+            samples = self.train_data[idx]
+        elif self.mode == 'test':
+            samples = self.test_data[idx]
         if self.bags:
             hs_img = self.data_memmaps[samples[0]["path"]][0]
             """

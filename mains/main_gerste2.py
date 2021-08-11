@@ -15,7 +15,7 @@ from train_self_attention import SANNetwork
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from utils.data_augmentation import Augmentation
+from utils.data_augmentation import AugmentationSingle
 from uv_dataloader import LeafDataset
 
 parser = argparse.ArgumentParser(description='Crazy Stuff')
@@ -38,7 +38,7 @@ parser.add_argument('--split', required=True, type=int,
                     help='')
 
 parser.add_argument('-dp', '--dataset_path',
-                    default="/Users/janik/Downloads/UV_Gerste/", type=str,
+                    default="/workspace/dataset/", type=str,
                     help='')
 args = parser.parse_args()
 
@@ -72,9 +72,9 @@ def train_attention():
                                 split=args.split,
                                 mode='train',
                                 superpixel=True,
-                                bags=True,
+                                bags=False,
                                 validation=False)
-                                #transform=Augmentation())  # 50000
+                                #transform=AugmentationSingle())  # 50000
     dataset_test = LeafDataset(data_path=args.dataset_path,
                                genotype=param_class.genotype, inoculated=param_class.inoculated, dai=param_class.dai,
                                test_size=param_class.test_size,
@@ -85,13 +85,13 @@ def train_attention():
                                split=args.split,
                                mode="test",
                                superpixel=True,
-                               bags=True,
+                               bags=False,
                                validation=False)
 
     print("Number of samples train", len(dataset_train))
     print("Number of samples test", len(dataset_test))
-    dataloader = DataLoader(dataset_train, batch_size=1, shuffle=True, num_workers=0)
-    dataloader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=0,
+    dataloader = DataLoader(dataset_train, batch_size=128, shuffle=True, num_workers=0)
+    dataloader_test = DataLoader(dataset_test, batch_size=128, shuffle=False, num_workers=0,
                                  drop_last=False)
 
     hyperparams = dataset_train.hyperparams
@@ -106,16 +106,16 @@ def train_attention():
     hyperparams['lr'] = args.lr
     hyperparams['num_epochs'] = args.num_epochs
     hyperparams['lr_scheduler_steps'] = args.lr_scheduler_steps
-    '''
+    
     model = SANNetwork(input_size=dataset_train.input_size,
                        num_classes=hyperparams['num_classes'],
                        hidden_layer_size=hyperparams['hidden_layer_size'],
-                       dropout=0.9,
+                       dropout=0.02,
                        num_heads=hyperparams['num_heads'],
                        device="cuda")
-    '''
+    
     #model = ConvNetBarley(elu=False, avgpool=False, nll=False, num_classes=param_class.num_classes)
-    model = CNNModel(num_classes=param_class.num_classes)
+    #model = CNNModel(num_classes=param_class.num_classes)
 
     num_epochs = hyperparams['num_epochs']
     optimizer = torch.optim.Adam(model.parameters(), lr=hyperparams['lr'])
@@ -127,11 +127,11 @@ def train_attention():
     save_dir = "./uv_dataset/results_cv/"
     writer = SummaryWriter(log_dir=save_dir + run_id, comment="_" + "_id_{}".format(run_id))
 
-    #device = "cuda"
-    #model.to(device)
+    device = "cuda"
+    model.to(device)
 
-    #balanced_loss_weight = torch.tensor([0.75, 0.25], device=device)  # torch.tensor([0.75, 0.25], device=device)
-    balanced_loss_weight = torch.tensor([0.75, 0.25])
+    balanced_loss_weight = torch.tensor([0.75, 0.25], device=device)  # torch.tensor([0.75, 0.25], device=device)
+    #balanced_loss_weight = torch.tensor([0.75, 0.25])
     crit = torch.nn.CrossEntropyLoss(weight=balanced_loss_weight)
     best_acc = 0
     for epoch in tqdm(range(num_epochs)):
@@ -141,31 +141,31 @@ def train_attention():
         target, pred = [], []
         total = 0
         for i, (features, labels) in enumerate(dataloader):
-            #labels = labels[2]
-            features = features.float()#.to(device)
-            features = features.permute((1, 0, 2, 3, 4))
-            labels = labels.long()#.to(device)
+            labels = labels[2]
+            features = features.float().to(device)
+            #features = features.unsqueeze(1)
+            labels = labels.long().to(device)
             model.train()
-            outputs, _ = model.forward(features)
+            outputs = model.forward(features)
             outputs = outputs.view(labels.shape[0], -1)
-            labels = labels.view(-1)
+            #labels = labels.view(-1)
             loss = crit(outputs, labels)
             optimizer.zero_grad()
             _, predicted = torch.max(outputs.data, 1)
             batch_pred, batch_target = getPredAndTarget(outputs, labels)
             target.append(batch_target)
             pred.append(batch_pred)
-            # correct += balanced_accuracy(batch_target, batch_pred) * labels.size(0)  # mean
+            correct += balanced_accuracy(batch_target, batch_pred) * labels.size(0)  # mean
             # correct += (predicted == labels).sum().item()
             total += labels.size(0)
             loss.backward()
             optimizer.step()
             losses_per_batch.append(float(loss))
         mean_loss = np.mean(losses_per_batch)
-        correct = balanced_accuracy(target, pred)
+        #correct = balanced_accuracy(target, pred)
         writer.add_scalar('Loss/train', mean_loss, epoch)
-        writer.add_scalar('Accuracy/train', 100 * correct, epoch)
-        print("Epoch {}, mean loss per batch {}, train acc {}".format(epoch, mean_loss, 100 * correct))
+        writer.add_scalar('Accuracy/train', 100 * correct / total, epoch)
+        print("Epoch {}, mean loss per batch {}, train acc {}".format(epoch, mean_loss, 100 * correct / total))
 
         if (epoch + 1) % args.test_epoch == 0 or epoch + 1 == num_epochs:
             correct_test = 0
@@ -176,14 +176,13 @@ def train_attention():
             attention_weights = []
             with torch.no_grad():
                 for i, (features, labels) in enumerate(dataloader_test):
-                    #labels = labels[2]
-                    features = features.float()#.to(device)
-                    features = features.permute((1, 0, 2, 3, 4))
-                    labels = labels.long()#.to(device)
-                    outputs, att = model.forward(features)
-                    attention_weights.append(att.cpu().squeeze(0).numpy())
+                    labels = labels[2]
+                    features = features.float().to(device)
+                    #features = features.unsqueeze(1)
+                    labels = labels.long().to(device)
+                    outputs = model.forward(features)
                     outputs = outputs.view(labels.shape[0], -1)
-                    labels = labels.view(-1)
+                    #labels = labels.view(-1)
                     loss = crit(outputs, labels)
                     losses_per_batch.append(float(loss))
                     _, predicted = torch.max(outputs.data, 1)
@@ -191,19 +190,18 @@ def train_attention():
                     batch_pred, batch_target = getPredAndTarget(outputs, labels)
                     target.append(batch_target)
                     pred.append(batch_pred)
-                    # correct_test += balanced_accuracy(batch_target, batch_pred) * labels.size(0)
+                    correct_test += balanced_accuracy(batch_target, batch_pred) * labels.size(0)
                     # correct += (predicted == labels).sum().item()
                 mean_loss = np.mean(losses_per_batch)
                 print(target, pred)
-                correct_test = balanced_accuracy(target, pred)
+                #correct_test = balanced_accuracy(target, pred)
                 writer.add_scalar('Loss/test', mean_loss, epoch)
-                #np.save('attention_weights.npy', attention_weights)
             print('Accuracy, mean loss per batch of the network on the test samples: {} %, {}'.format(
-                    100 * correct_test, mean_loss))
-            writer.add_scalar('Accuracy/test', 100 * correct_test, epoch)
+                    100 * correct_test / total, mean_loss))
+            writer.add_scalar('Accuracy/test', 100 * correct_test / total, epoch)
 
             if (correct_test) >= best_acc:
-                best_acc = (correct_test)
+                best_acc = (correct_test / total)
             model.train()
 
         scheduler.step()
