@@ -620,10 +620,12 @@ class LeafDataset(Dataset):
             bag_labels = (samples["label_genotype"], samples["label_dai"], samples["label_inoculated"],
                      samples["label_obj"], samples["label_running"])
 
-            bag_instances = hs_img[samples["pos"][0][0]:samples["pos"][0][1], samples["pos"][1][0]:samples["pos"][1][1], :]
-            #res_sample = res_sample[samples["mask"].astype(int) == 1]
-            #res_sample = np.mean(res_sample, axis=(0,))
-            #bag_instances = self.normalize(res_sample)
+            bag_instances = hs_img[samples["pos"][0][0]:samples["pos"][0][1], samples["pos"][1][0]:samples["pos"][1][1],
+                            :]
+            res_sample = bag_instances[samples["mask"].astype(int) == 1]
+            res_sample = np.mean(res_sample, axis=(0,))
+            bag_instances = self.normalize(res_sample)
+            #bag_instances = torch.from_numpy(bag_instances.transpose((2, 0, 1)))
         #res_sample = self.crop(res_sample, (25, 750))
         #res_sample = torch.from_numpy(res_sample.transpose((2, 0, 1)))
         #
@@ -769,17 +771,19 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
                                           "label_dai": bbox_obj_dict["label_dai"],
                                           "label_inoculated": bbox_obj_dict["label_inoculated"],
                                           "label_running": bbox_obj_dict["label_running"],
-                                          "bbox_filename": [filename]})
+                                          "bbox_filename": [filename],
+                                          "bboxes": [bbox_obj_dict["bbox"]]})
         else:
             data_hs[hs_img_path][1]["bbox_filename"].append(filename)
+            data_hs[hs_img_path][1]["bboxes"].append(bbox_obj_dict["bbox"])
             #print(data_hs[hs_img_path][1]["bbox_filename"])
         # in bbox
-
+        '''
         x_diff = max_x - min_x
         new_x = int(round((x_diff - 25) / 2.))
         min_x = min_x + new_x
         max_x = min_x + 25
-        '''
+        
         y_diff = max_y - min_y
         new_y = int(round((y_diff - 631) / 2.))
         min_y = min_y + new_y
@@ -835,10 +839,7 @@ def _load_preprocessed_data(base_path_dataset, base_path_dataset_parsed, genotyp
             balance_inoculated_label_current[bbox_obj_dict["label_inoculated"]] += len(selected_file_samples)
 
             selected_file_samples = [d for (i, d) in enumerate(data_pos_file) if i in selected_file_samples]
-            if bags:
-                data_pos += [selected_file_samples]
-            else:
-                data_pos += selected_file_samples
+            data_pos += [selected_file_samples]
 
             cnt_files_used += 1
 

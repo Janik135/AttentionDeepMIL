@@ -8,7 +8,8 @@ class CNNModel(nn.Module):
 
         self.conv_layer1 = self._conv_layer_set(1, 32)
         self.conv_layer2 = self._conv_layer_set(32, 64)
-        self.fc1 = nn.Linear(2**3*64*100, 256)
+        self.fc1 = nn.Linear(2**3*64*95, 256)
+        #self.fc1 = nn.Linear(2**3*64*100, 256)
         self.attention = nn.Sequential(
             nn.Linear(256, 128),
             nn.Tanh(),
@@ -36,11 +37,13 @@ class CNNModel(nn.Module):
         out = self.relu(out)
         out = self.batch(out)
         out = self.drop(out)
+
         A = self.attention(out)  # NxK
         A = torch.transpose(A, 1, 0)  # KxN
         A = nn.Softmax(dim=1)(A)  # softmax over N
 
         M = torch.mm(A, out)
+
         out = self.fc2(M)
 
-        return out, A
+        return out

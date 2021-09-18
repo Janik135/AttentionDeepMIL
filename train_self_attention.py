@@ -90,7 +90,7 @@ class SANNetwork(nn.Module):
                 attention_output_space.append(self.softmax(head(input_space)) * input_space)
 
         ## initialize a placeholder
-        placeholder = torch.zeros(input_space.shape)#.to(self.device)
+        placeholder = torch.zeros(input_space.shape).to(self.device)
 
         ## traverse the heads and construct the attention matrix
         for element in attention_output_space:
@@ -123,10 +123,10 @@ class SANNetwork(nn.Module):
 
         ## (gated) attention pooling
         out = out.squeeze(0)
-        A_V = self.attention_V(out)  # NxD
-        A_U = self.attention_U(out)  # NxD
-        A = self.attention_weights(A_V * A_U) # element wise multiplication # NxK
-        #A = self.attention(out)  # NxK
+        #A_V = self.attention_V(out)  # NxD
+        #A_U = self.attention_U(out)  # NxD
+        #A = self.attention_weights(A_V * A_U) # element wise multiplication # NxK
+        A = self.attention(out)  # NxK
         A = torch.transpose(A, 1, 0)  # KxN
         A = nn.Softmax(dim=1)(A)  # softmax over N
 

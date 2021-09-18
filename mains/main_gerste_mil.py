@@ -197,7 +197,7 @@ def train_attention():
                 print(target, pred)
                 correct_test = balanced_accuracy(target, pred)
                 writer.add_scalar('Loss/test', mean_loss, epoch)
-                #np.save('attention_weights.npy', attention_weights)
+                np.save('attention_weights.npy', attention_weights)
             print('Accuracy, mean loss per batch of the network on the test samples: {} %, {}'.format(
                     100 * correct_test, mean_loss))
             writer.add_scalar('Accuracy/test', 100 * correct_test, epoch)

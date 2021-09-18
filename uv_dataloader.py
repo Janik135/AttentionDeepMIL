@@ -465,6 +465,7 @@ class LeafDataset(Dataset):
         self.validation = validation
         self.transform = transform
         self.mode = mode
+        self.class_names = {0: 'control', 1: 'inoculated'}
 
         # load data
         base_path_dataset_parsed = os.path.join(data_path, "../../Downloads/UV_Gerste/parsed_data")
@@ -480,7 +481,7 @@ class LeafDataset(Dataset):
             test_index = np.arange(len(self.data))
         else:
             sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=0)
-            labels = [item[0]['label_inoculated'] for item in self.data]
+            labels = [item['label_inoculated'] for item in self.data]
             #splits = [(train, test) for train, test in sss.split(self.data, np.zeros([len(self.data)]))]
             splits = [(train, test) for train, test in sss.split(self.data, labels)]
             train_index, test_index = splits[split]
@@ -606,7 +607,8 @@ class LeafDataset(Dataset):
             bag_labels = (samples["label_genotype"], samples["label_dai"], samples["label_inoculated"],
                      samples["label_obj"], samples["label_running"])
 
-            bag_instances = hs_img[samples["pos"][0][0]:samples["pos"][0][1], samples["pos"][1][0]:samples["pos"][1][1], :]
+            bag_instances = hs_img[samples["pos"][0][0]:samples["pos"][0][1], samples["pos"][1][0]:samples["pos"][1][1], self.signature_clip[0]:408]
+            bag_instances = torch.from_numpy(bag_instances.transpose((2, 0, 1)))
             #res_sample = res_sample[samples["mask"].astype(int) == 1]
             #res_sample = np.mean(res_sample, axis=(0,))
             #bag_instances = self.normalize(res_sample)
